@@ -4,7 +4,8 @@ import citrea.swarm4j.model.SwarmException;
 import citrea.swarm4j.model.Syncable;
 import citrea.swarm4j.model.spec.Spec;
 import citrea.swarm4j.model.spec.SpecToken;
-import citrea.swarm4j.model.value.JSONValue;
+import com.eclipsesource.json.JsonValue;
+
 
 /**
  * Created with IntelliJ IDEA.
@@ -25,13 +26,13 @@ public class PendingUplink extends FilteringOpRecipient<Uplink> implements Uplin
     }
 
     @Override
-    protected boolean filter(Spec spec, JSONValue value, OpRecipient source) throws SwarmException {
+    protected boolean filter(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
         // only response for my request
         return requestedVersion.equals(spec.getVersion());
     }
 
     @Override
-    protected void deliverInternal(Spec spec, JSONValue value, OpRecipient source) throws SwarmException {
+    protected void deliverInternal(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
         object.removeListener(this);
         object.addUplink(this.getInner());
     }

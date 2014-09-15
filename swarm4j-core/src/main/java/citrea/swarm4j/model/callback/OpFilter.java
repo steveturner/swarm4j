@@ -2,7 +2,8 @@ package citrea.swarm4j.model.callback;
 
 import citrea.swarm4j.model.spec.Spec;
 import citrea.swarm4j.model.spec.SpecToken;
-import citrea.swarm4j.model.value.JSONValue;
+import com.eclipsesource.json.JsonValue;
+
 
 /**
  * Created with IntelliJ IDEA.
@@ -21,7 +22,7 @@ public class OpFilter extends FilteringOpRecipient<OpRecipient> {
     }
 
     @Override
-    public boolean filter(Spec spec, JSONValue value, OpRecipient source) {
+    public boolean filter(Spec spec, JsonValue value, OpRecipient source) {
         return op.equals(spec.getOp());
     }
 

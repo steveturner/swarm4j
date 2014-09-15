@@ -1,7 +1,8 @@
 package citrea.swarm4j.model;
 
 import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.value.JSONValue;
+import com.eclipsesource.json.JsonValue;
+
 
 /**
  * Created with IntelliJ IDEA.
@@ -11,7 +12,7 @@ import citrea.swarm4j.model.value.JSONValue;
  *         Time: 16:34
  */
 public class SelfHandshakeSwarmException extends InvalidHandshakeSwarmException {
-    public SelfHandshakeSwarmException(Spec spec, JSONValue value) {
+    public SelfHandshakeSwarmException(Spec spec, JsonValue value) {
         super(spec, value);
     }
 }

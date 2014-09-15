@@ -1,7 +1,8 @@
 package citrea.swarm4j.model;
 
 import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.value.JSONValue;
+import com.eclipsesource.json.JsonValue;
+
 
 /**
  * Created with IntelliJ IDEA.
@@ -15,7 +16,7 @@ public class InvalidHandshakeSwarmException extends SwarmException {
         super(message);
     }
 
-    public InvalidHandshakeSwarmException(Spec spec, JSONValue value) {
-        this(spec.toString() + "->" + value.toJSONString());
+    public InvalidHandshakeSwarmException(Spec spec, JsonValue value) {
+        this(spec.toString() + "->" + value.toString());
     }
 }

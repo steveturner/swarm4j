@@ -10,13 +10,12 @@ import citrea.swarm4j.model.clocks.SecondPreciseClock;
 import citrea.swarm4j.model.hash.HashFunction;
 import citrea.swarm4j.model.hash.SimpleHash;
 import citrea.swarm4j.model.meta.TypeMeta;
-import citrea.swarm4j.model.pipe.OpStream;
-import citrea.swarm4j.model.pipe.Pipe;
-import citrea.swarm4j.model.pipe.Plumber;
+import citrea.swarm4j.model.pipe.*;
 import citrea.swarm4j.model.reflection.ReflectionTypeMeta;
 import citrea.swarm4j.storage.Storage;
 import citrea.swarm4j.model.spec.*;
-import citrea.swarm4j.model.value.JSONValue;
+import com.eclipsesource.json.JsonValue;
+
 
 import java.net.URI;
 import java.util.*;
@@ -34,20 +33,20 @@ import java.util.regex.Pattern;
  */
 public class Host extends Syncable implements HostPeer, Runnable {
     public static final SpecToken HOST = new SpecToken("/Host");
-    private Map<SpecToken, TypeMeta> knownTypes = new HashMap<SpecToken, TypeMeta>();
+    private Map<SpecToken, TypeMeta> knownTypes = new HashMap<>();
 
-    final BlockingQueue<QueuedOperation> queue = new LinkedBlockingQueue<QueuedOperation>();
+    final BlockingQueue<QueuedOperation> queue = new LinkedBlockingQueue<>();
     private Thread queueThread;
 
-    Map<Spec, Syncable> objects = new HashMap<Spec, Syncable>();
+    Map<Spec, Syncable> objects = new HashMap<>();
     private Clock clock;
-    private Map<Spec, Peer> sources = new HashMap<Spec, Peer>();
+    private Map<Spec, Peer> sources = new HashMap<>();
     private Storage storage = null;
 
     // config
     private Plumber plumber = new Plumber();
     private HashFunction hashFn = new SimpleHash();
-
+    private OpChannelFactoryRegistry connectionFactory = new OpChannelFactoryRegistry();
 
     public Host(SpecToken id, Storage storage) throws SwarmException {
         super(id, null);
@@ -70,7 +69,7 @@ public class Host extends Syncable implements HostPeer, Runnable {
     }
 
     @Override
-    public void deliver(Spec spec, JSONValue value, OpRecipient source) throws SwarmException {
+    public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
         if (spec.getPattern() != SpecPattern.FULL) {
             throw new SwarmException("incomplete operation spec");
         }
@@ -124,7 +123,7 @@ public class Host extends Syncable implements HostPeer, Runnable {
 
     private <T extends Syncable> T newInstance(TypeMeta typeMeta, SpecToken id) throws SwarmException {
         @SuppressWarnings("unchecked") T res = (T) typeMeta.newInstance(id, this);
-        //TODO defaults obj.apply(JSONValue.NULL);
+        //TODO defaults obj.apply(JsonValue.NULL);
         return res;
     }
 
@@ -133,19 +132,19 @@ public class Host extends Syncable implements HostPeer, Runnable {
         //TODO their time is off so tell them so  //FIXME ???
         Peer old = this.sources.get(peer.getTypeId());
         if (old != null) {
-            old.deliver(this.newEventSpec(OFF), JSONValue.NULL, this);
+            old.deliver(this.newEventSpec(OFF), JsonValue.NULL, this);
         }
 
         this.sources.put(peer.getTypeId(), peer);
         if (ON.equals(spec.getOp())) {
-            peer.deliver(this.newEventSpec(REON), JSONValue.NULL, this); // TODO offset
+            peer.deliver(this.newEventSpec(REON), JsonValue.NULL, this); // TODO offset
         }
 
         for (Syncable obj: this.objects.values()) {
             obj.checkUplink();
         }
 
-        this.emit(spec, JSONValue.NULL, peer); // PEX hook
+        this.emit(spec, JsonValue.NULL, peer); // PEX hook
     }
 
     /**
@@ -163,20 +162,24 @@ public class Host extends Syncable implements HostPeer, Runnable {
      */
     @Override
     @SwarmOperation(kind = SwarmOperationKind.Neutral)
-    public void on(Spec spec, JSONValue evfilter, OpRecipient source) throws SwarmException {
-        if (evfilter.isEmpty()) {// the subscriber needs "all the events"
+    public void on(Spec spec, JsonValue evfilter, OpRecipient source) throws SwarmException {
+        if (evfilter.isNull()) {// the subscriber needs "all the events"
             if (!(source instanceof Peer)) {
-                throw new IllegalArgumentException("evfilter is empty but source is not a stream");
+                throw new IllegalArgumentException("evfilter is empty but source is not a channel");
             }
             this.addSource(spec, (Peer) source);
             return;
         }
 
+        String possibleHostMethodName = evfilter.asString();
+        if (possibleHostMethodName != null && possibleHostMethodName.startsWith(SpecQuant.OP.toString())) {
+            possibleHostMethodName = possibleHostMethodName.substring(1);
+        }
         Spec objon;
-        if (evfilter.getValueAsStr().matches(Syncable.RE_METHOD_NAME)) { //this Host operation listening
-            objon = this.getTypeId().getTypeId(); // "/Host#id"
+        if (getTypeMeta().getOperationMeta(possibleHostMethodName) != null) { //this Host operation listening
+            objon = this.getTypeId(); // "/Host#id"
         } else {
-            objon = new Spec(evfilter.getValueAsStr()).getTypeId();
+            objon = new Spec(evfilter.asString()).getTypeId();
             if (objon.getType() == null) throw new IllegalArgumentException("no type mentioned");
         }
 
@@ -193,7 +196,7 @@ public class Host extends Syncable implements HostPeer, Runnable {
 
     @Override
     @SwarmOperation(kind = SwarmOperationKind.Neutral)
-    public void reon(Spec spec, JSONValue value, OpRecipient source) throws SwarmException {
+    public void reon(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
         if (!HOST.equals(spec.getType())) throw new IllegalArgumentException("/NotHost");
         /// well.... TODO
         if (!(source instanceof Peer)) throw new IllegalArgumentException("src is not a Peer");
@@ -211,7 +214,7 @@ public class Host extends Syncable implements HostPeer, Runnable {
                 this.clock.issueTimestamp(),
                 REOFF
         );
-        src.deliver(reoffSpec, JSONValue.NULL, this);
+        src.deliver(reoffSpec, JsonValue.NULL, this);
         this.removeSource(spec, (Peer) src);
     }
 
@@ -226,15 +229,17 @@ public class Host extends Syncable implements HostPeer, Runnable {
         if (!HOST.equals(spec.getType())) throw new IllegalArgumentException("/NotHost");
 
         if (this.sources.get(peer.getTypeId()) != peer) {
-            //TODO log console.error('stream unknown', stream._id); //throw new Error
+            //TODO log console.error('channel unknown', channel._id); //throw new Error
             return;
         }
         logger.debug("{}.removeSource({}, {})", this, spec, peer);
         this.sources.remove(peer.getTypeId());
         for (Map.Entry<Spec, Syncable> sp : this.objects.entrySet()) {
             Syncable obj = sp.getValue();
+            if (HOST.equals(obj.getType())) continue;
+
+            obj.off(sp.getKey(), peer);
             if (obj.hasUplink(peer)) {
-                obj.off(sp.getKey(), peer);
                 obj.checkUplink();
             }
         }
@@ -257,7 +262,7 @@ public class Host extends Syncable implements HostPeer, Runnable {
         //spec must be /Type#id
         spec = spec.getTypeId();
 
-        List<Uplink> uplinks = new ArrayList<Uplink>();
+        List<Uplink> uplinks = new ArrayList<>();
         int mindist = Integer.MAX_VALUE;
         Pattern rePeer = Pattern.compile("^swarm~"); // peers, not clients
         String target = spec.getId().getBody();
@@ -285,6 +290,16 @@ public class Host extends Syncable implements HostPeer, Runnable {
         }
         if (closestPeer != null) uplinks.add(0, closestPeer);
         return uplinks;
+    }
+
+    @Override
+    public boolean isUplinked() {
+        for (Spec peerId : this.sources.keySet()) {
+            if (peerId.getId().getBare().startsWith("swarm~")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     Syncable register(Syncable obj) {
@@ -336,25 +351,47 @@ public class Host extends Syncable implements HostPeer, Runnable {
         return getTypeMeta(typeToken);
     }
 
-    @Override
-    public void accept(OpStream stream) {
-        Pipe pipe = new Pipe(this, plumber);
-        pipe.setStream(stream);
+    public void registerChannelFactory(String scheme, OpChannelFactory factory) {
+        this.connectionFactory.registerFactory(scheme, factory);
     }
 
     @Override
-    public void connect(URI upstreamURI, long reconnectTimeout) throws SwarmException {
+    public void accept(OpChannel channel) {
+        logger.info("{}.accept({})", this, channel);
         Pipe pipe = new Pipe(this, plumber);
-        pipe.setStream(upstreamURI);
+        pipe.bindChannel(channel);
+    }
+
+    @Override
+    public void connect(URI upstreamURI, long reconnectTimeout, int connectionAttempt) throws SwarmException, UnsupportedProtocolException {
+        logger.info("{}.connect({}, {})", this, upstreamURI.toString(), reconnectTimeout);
+        Pipe pipe = new Pipe(this, plumber);
+        pipe.setReconnectionUri(upstreamURI);
         pipe.setReconnectTimeout(reconnectTimeout);
-        pipe.deliver(this.newEventSpec(ON), JSONValue.NULL, this);
+        pipe.setConnectionAttempt(connectionAttempt);
+        final ConnectableOpChannel channel = this.connectionFactory.createChannel(upstreamURI);
+        pipe.bindChannel(channel);
+        channel.connect();
+        pipe.deliver(newEventSpec(ON), JsonValue.NULL, this);
     }
 
     @Override
-    public void connect(OpStream upstream) throws SwarmException {
+    public void connect(OpChannel upstream) throws SwarmException {
         Pipe pipe = new Pipe(this, plumber);
-        pipe.setStream(upstream);
-        pipe.deliver(this.newEventSpec(ON), JSONValue.NULL, this);
+        pipe.bindChannel(upstream);
+        pipe.deliver(newEventSpec(ON), JsonValue.NULL, this);
+    }
+
+    @Override
+    public void disconnect(SpecToken peerId) throws SwarmException {
+        Spec searchFor = new Spec(HOST, peerId);
+        for (Spec id : sources.keySet()) {
+            if (id.equals(searchFor)) {
+                Peer peer = sources.get(id);
+                // normally, .off is sent by a downlink
+                peer.deliver(peer.getTypeId().addToken(this.time()).addToken(OFF), JsonValue.NULL, NOOP);
+            }
+        }
     }
 
     @Override
@@ -428,7 +465,7 @@ public class Host extends Syncable implements HostPeer, Runnable {
         if (this.storage != null) {
             this.storage.start();
         }
-        this.plumber.start();
+        this.plumber.start(getId());
         new Thread(this, getPeerId().toString()).start();
     }
 
@@ -448,7 +485,9 @@ public class Host extends Syncable implements HostPeer, Runnable {
                 queueThread.interrupt();
             }
         }
-        this.storage.stop();
+        if (this.storage != null) {
+            this.storage.stop();
+        }
         this.plumber.stop();
     }
 

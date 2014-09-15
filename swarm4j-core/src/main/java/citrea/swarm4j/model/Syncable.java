@@ -10,8 +10,9 @@ import citrea.swarm4j.model.oplog.LogDistillator;
 import citrea.swarm4j.model.oplog.NoLogDistillator;
 import citrea.swarm4j.model.spec.*;
 import citrea.swarm4j.util.ChainedIterators;
-import citrea.swarm4j.model.value.JSONValue;
-import org.json.JSONException;
+
+import com.eclipsesource.json.JsonObject;
+import com.eclipsesource.json.JsonValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,7 +33,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
     public static final SpecToken PATCH = new SpecToken(".patch");
     public static final SpecToken ERROR = new SpecToken(".error");
 
-    protected Logger logger = LoggerFactory.getLogger(getClass());
+    protected Logger logger = LoggerFactory.getLogger(this.getClass());
 
     // TODO fix listeners description
     // listeners represented as objects that have deliver() method
@@ -55,7 +56,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
     protected SpecToken id;
     protected String version = null;
     protected String vector = null;
-    protected Map<Spec, JSONValue> oplog = new HashMap<Spec, JSONValue>();
+    protected Map<Spec, JsonValue> oplog = new HashMap<Spec, JsonValue>();
 
     public Syncable(SpecToken id, Host host) throws SwarmException {
         this.id = id;
@@ -85,30 +86,29 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
      * Applies a serialized operation (or a batch thereof) to this replica
      */
     @Override
-    public synchronized void deliver(Spec spec, JSONValue value, OpRecipient source) throws SwarmException {
+    public synchronized void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
         logger.debug("{} <= ({}, {}, {})", this, spec, value, source);
         String opver = spec.getVersion().toString();
-        value = value.clone();
 
         // sanity checks
         if (spec.getPattern() != SpecPattern.FULL) {
-            source.deliver(spec.overrideToken(ERROR), new JSONValue("malformed spec"), OpRecipient.NOOP);
+            source.deliver(spec.overrideToken(ERROR), JsonValue.valueOf("malformed spec"), OpRecipient.NOOP);
             return;
         }
 
         if (this.id == null) {
-            source.deliver(spec.overrideToken(ERROR), new JSONValue("undead object invoked"), OpRecipient.NOOP);
+            source.deliver(spec.overrideToken(ERROR), JsonValue.valueOf("undead object invoked"), OpRecipient.NOOP);
             return;
         }
 
         String error = this.validate(spec, value);
         if (error != null && !"".equals(error)) {
-            source.deliver(spec.overrideToken(ERROR), new JSONValue("invalid input, " + error), OpRecipient.NOOP);
+            source.deliver(spec.overrideToken(ERROR), JsonValue.valueOf("invalid input, " + error), OpRecipient.NOOP);
             return;
         }
 
         if (!this.acl(spec, value, source)) {
-            source.deliver(spec.overrideToken(ERROR), new JSONValue("access violation"), OpRecipient.NOOP);
+            source.deliver(spec.overrideToken(ERROR), JsonValue.valueOf("access violation"), OpRecipient.NOOP);
             return;
         }
 
@@ -140,7 +140,11 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
                         // concurrent change, as it is always set to the maximum version id
                         // received by this object. Still, only the full version vector may
                         // precisely and uniquely specify the current version (see version()).
-                        this.version = (opver.compareTo(this.version) > 0) ? opver : this.version + opver;
+                        if (this.version == null || opver.compareTo(this.version) > 0) {
+                            this.version = opver;
+                        } else {
+                            this.version += opver;
+                        }
                     }
                     // ...and relay further to downstream replicas and various listeners
                     this.emit(spec, value, source);
@@ -161,7 +165,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
         } catch (Exception ex) {
             // log and rethrow; don't relay further; don't log
             logger.error("deliver({}, {}, {}) exception: ", spec, value, source, ex);
-            this.error(spec, new JSONValue("method execution failed: " + ex.toString()), source);
+            this.error(spec, JsonValue.valueOf("method execution failed: " + ex.toString()), source);
         }
     }
 
@@ -208,7 +212,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
     /**
      * Notify all the listeners of a state change (i.e. the operation applied).
      */
-    public void emit(Spec spec, JSONValue value, OpRecipient src) throws SwarmException {
+    public void emit(Spec spec, JsonValue value, OpRecipient src) throws SwarmException {
         @SuppressWarnings("unchecked") Iterator<OpRecipient> it = new ChainedIterators<OpRecipient>(
                 this.uplinks.iterator(),
                 this.listeners.iterator()
@@ -248,28 +252,28 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
         } */
     }
 
-    public void trigger(String event, JSONValue params) throws SwarmException {
+    public void trigger(String event, JsonValue params) throws SwarmException {
         Spec spec = this.newEventSpec(new SpecToken("." + event));
         this.deliver(spec, params, OpRecipient.NOOP);
     }
 
     /**
      * Blindly applies a JSON changeset to this model.
-     * @param values field values
+     * @param fieldValues field values
      */
-    public void apply(JSONValue values) throws SwarmException {
-        for (String fieldName : values.getFieldNames()) {
+    public void apply(JsonObject fieldValues) throws SwarmException {
+        for (String fieldName : fieldValues.names()) {
             if (fieldName.startsWith("_")) {
                 //special field: _version, _tail, _vector, _oplog
                 continue;
             }
             FieldMeta meta = this.getTypeMeta().getFieldMeta(fieldName);
             if (meta == null) {
-                logger.warn("{}.apply({}): Trying to modify unknown field: {}", this, values, fieldName);
+                logger.warn("{}.apply({}): Trying to modify unknown field: {}", this, fieldValues, fieldName);
                 continue;
             }
 
-            meta.set(this, values.getFieldValue(fieldName));
+            meta.set(this, fieldValues.get(fieldName));
         }
     }
 
@@ -305,33 +309,33 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
      * fields in an object. In practice, that is a small number, so
      * Model uses its distilled log to transfer state (no snapshots).
      */
-    public JSONValue diff(SpecToken base) {
+    public JsonObject diff(SpecToken base) {
         //var vid = new Spec(this.version).get('!'); // first !token
         //var spec = vid + '.patch';
         this.distillLog(); // TODO optimize?
-        Map<String, JSONValue> patch = new HashMap<String, JSONValue>();
+        JsonObject patch = new JsonObject();
         if (base != null && !SpecToken.ZERO_VERSION.equals(base)) {
             VersionVector map = new VersionVector(base.toString());
-            Map<String, JSONValue> tail = new HashMap<String, JSONValue>();
-            for (Map.Entry<Spec, JSONValue> op : this.oplog.entrySet()) {
+            JsonObject tail = new JsonObject();
+            for (Map.Entry<Spec, JsonValue> op : this.oplog.entrySet()) {
                 Spec spec = op.getKey();
                 if (!map.covers(spec.getVersion())) {
-                    tail.put(spec.toString(), op.getValue());
+                    tail.set(spec.toString(), op.getValue());
                 }
             }
-            patch.put("_tail", new JSONValue(tail));
+            patch.set("_tail", tail);
         } else {
-            Map<String, JSONValue> tail = new HashMap<String, JSONValue>();
-            for (Map.Entry<Spec, JSONValue> op : this.oplog.entrySet()) {
-                tail.put(op.getKey().toString(), op.getValue());
+            JsonObject tail = new JsonObject();
+            for (Map.Entry<Spec, JsonValue> op : this.oplog.entrySet()) {
+                tail.set(op.getKey().toString(), op.getValue());
             }
-            patch.put("_version", new JSONValue(SpecToken.ZERO_VERSION.toString()));
-            patch.put("_tail", new JSONValue(tail));
+            patch.set("_version", JsonValue.valueOf(SpecToken.ZERO_VERSION.toString()));
+            patch.set("_tail", tail);
         }
-        return new JSONValue(patch);
+        return patch;
     }
 
-    protected Map<String, JSONValue> distillLog() {
+    protected Map<String, JsonValue> distillLog() {
         return this.logDistillator.distillLog(this.oplog);
     }
 
@@ -339,7 +343,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
      * whether the update source (author) has all the rights necessary
      * @return {boolean}
      */
-    public boolean acl(Spec spec, JSONValue val, OpRecipient src) {
+    public boolean acl(Spec spec, JsonValue val, OpRecipient src) {
         return true;
     }
 
@@ -347,7 +351,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
      * Check operation format/validity (recommendation: don't check against the current state)
      * @return '' if OK, error message otherwise.
      */
-    public String validate(Spec spec, JSONValue val) throws SwarmException {
+    public String validate(Spec spec, JsonValue val) throws SwarmException {
         // TODO add causal stability violation check  Swarm.EPOCH  (+tests)
         return "";
     }
@@ -390,7 +394,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
      */
     @Override
     @SwarmOperation(kind = SwarmOperationKind.Neutral)
-    public void on(Spec spec, JSONValue filterValue, OpRecipient source) throws SwarmException {   // WELL  on() is not an op, right?
+    public void on(Spec spec, JsonValue filterValue, OpRecipient source) throws SwarmException {   // WELL  on() is not an op, right?
         // if no listener is supplied then the object is only
         // guaranteed to exist till the next Host.gc() run
         if (source == null) return;
@@ -406,14 +410,14 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
             return; // defer this call till uplinks are ready
         }
 
-        if (JSONValue.NULL != filterValue) {
-            Spec filter = new Spec(filterValue.getValueAsStr());
+        if (JsonValue.NULL != filterValue) {
+            Spec filter = new Spec(filterValue.asString());
             SpecToken baseVersion = filter.getVersion();
             SpecToken filter_by_op = filter.getOp();
 
             if (filter_by_op != null) {
                 if (INIT.equals(filter_by_op)) {
-                    JSONValue diff_if_needed = baseVersion != null ? this.diff(baseVersion) : JSONValue.NULL;
+                    JsonValue diff_if_needed = baseVersion != null ? this.diff(baseVersion) : JsonValue.NULL;
                     source.deliver(spec.overrideToken(PATCH), diff_if_needed, this);
                     // use once()
                     return;
@@ -423,11 +427,11 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
             }
 
             if (baseVersion != null) {
-                JSONValue diff = this.diff(baseVersion);
+                JsonObject diff = this.diff(baseVersion);
                 if (!diff.isEmpty()) {
                     source.deliver(spec.overrideToken(PATCH), diff, this); // 2downlink
                 }
-                source.deliver(spec.overrideToken(REON), new JSONValue(this.version().toString()), this);
+                source.deliver(spec.overrideToken(REON), JsonValue.valueOf(this.version().toString()), this);
             }
         }
 
@@ -437,7 +441,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
 
     // should be generated?
     @Override
-    public void on(JSONValue evfilter, OpRecipient source) throws SwarmException {
+    public void on(JsonValue evfilter, OpRecipient source) throws SwarmException {
         this.on(newEventSpec(ON), evfilter, source);
     }
 
@@ -446,10 +450,10 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
      */
     @Override
     @SwarmOperation(kind = SwarmOperationKind.Neutral)
-    public void reon(Spec spec, JSONValue base, OpRecipient source) throws SwarmException {
-        if (base.isEmpty()) return;
+    public void reon(Spec spec, JsonValue base, OpRecipient source) throws SwarmException {
+        if (base.isNull()) return;
 
-        JSONValue diff = this.diff(new SpecToken(base.getValueAsStr()));
+        JsonObject diff = this.diff(new SpecToken(base.asString()));
         if (diff.isEmpty()) return;
 
         source.deliver(spec.overrideToken(PATCH), diff, this); // 2uplink
@@ -465,7 +469,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
     // should be generated?
     @Override
     public void off(OpRecipient source) throws SwarmException {
-        this.deliver(this.newEventSpec(OFF), JSONValue.NULL, source);
+        this.deliver(this.newEventSpec(OFF), JsonValue.NULL, source);
     }
 
     /** Reciprocal unsubscription */
@@ -483,7 +487,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
      * Sort of an asynchronous complaint mailbox :)
      */
     @SwarmOperation(kind = SwarmOperationKind.Neutral)
-    public void error(Spec spec, JSONValue value, OpRecipient source) {
+    public void error(Spec spec, JsonValue value, OpRecipient source) {
         this.log(spec.overrideToken(ERROR), value, this, source);
     }
 
@@ -503,8 +507,8 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
      * @param source source of operation
      */
     @SwarmOperation(kind = SwarmOperationKind.Logged)
-    public void patch(Spec spec, JSONValue state, OpRecipient source) throws SwarmException {
-        Map<String, JSONValue> tail = new HashMap<String, JSONValue>();
+    public void patch(Spec spec, JsonValue state, OpRecipient source) throws SwarmException {
+        Map<String, JsonValue> tail = new HashMap<String, JsonValue>();
         Spec typeid = spec.getTypeId();
         List<Uplink> uplinksBak = this.uplinks;
         List<OpRecipient> listenersBak = this.listeners;
@@ -516,44 +520,55 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
                 if (!this._version) this._version = '!0';
             }*/
 
-        JSONValue state_version = state.getFieldValue("_version");
-        if (!state_version.isEmpty() /* && state._version !== '!0'*/) {
-            // local changes may need to be merged into the received state
-            if (!this.oplog.isEmpty()) {
-                for (Map.Entry<Spec, JSONValue> op : this.oplog.entrySet()) {
-                    tail.put(op.getKey().toString(), op.getValue());
+        if (state instanceof JsonObject) {
+            JsonObject joState = (JsonObject) state;
+            JsonValue state_version = joState.get("_version");
+            if (state_version != null && state_version.isString()) {
+                // local changes may need to be merged into the received state
+                if (!this.oplog.isEmpty()) {
+                    for (Map.Entry<Spec, JsonValue> op : this.oplog.entrySet()) {
+                        tail.put(op.getKey().toString(), op.getValue());
+                    }
+                    this.oplog.clear();
                 }
-                this.oplog.clear();
-            }
-            if (this.vector != null) {
-                this.vector = null;
-            }
-            // TODO zero everything
-            /*
-            for (FieldMeta field : this.typeMeta.getAllFields()) {
-                field.set(this, JSONValue.NULL);
-            }
-            */
-            // set default values
-            this.reset();
+                if (this.vector != null) {
+                    this.vector = null;
+                }
+                // TODO zero everything
+                /*
+                for (FieldMeta field : this.typeMeta.getAllFields()) {
+                    field.set(this, JsonValue.NULL);
+                }
+                */
+                // set default values
+                this.reset();
 
-            this.apply(state);
-            this.version = state_version.getValueAsStr();
-            JSONValue state_oplog = state.getFieldValue("_oplog");
-            if (!state_oplog.isEmpty()) {
-                for (String op_spec : state_oplog.getFieldNames()) {
-                    this.oplog.put(new Spec(op_spec), state_oplog.getFieldValue(op_spec));
+                this.apply(joState);
+                this.version = state_version.asString();
+                JsonValue state_oplog = joState.get("_oplog");
+                if (state_oplog instanceof JsonObject) {
+                    JsonObject joOplog = (JsonObject) state_oplog;
+                    for (String op_spec : joOplog.names()) {
+                        this.oplog.put(new Spec(op_spec), joOplog.get(op_spec));
+                    }
+                }
+                JsonValue state_vector = joState.get("_vector");
+                if (state_vector != null && state_vector.isString()) {
+                    this.vector = state_vector.asString();
                 }
             }
-            JSONValue state_vector = state.getFieldValue("_vector");
-            if (!state_vector.isEmpty()) {
-                this.vector = state_vector.getValueAsStr();
+
+            // add the received tail to the local one
+            JsonValue stateTail = joState.get("_tail");
+            if (stateTail instanceof JsonObject) {
+                JsonObject joStateTail = (JsonObject) stateTail;
+                for (String specStr : joStateTail.names()) {
+                    tail.put(specStr, joStateTail.get(specStr));
+                }
             }
         }
-        // add the received tail to the local one
-        tail.putAll(state.getFieldValue("_tail").getValueAsMap());
-        // appply the combined tail to the new state
 
+        // appply the combined tail to the new state
         String[] specs = tail.keySet().toArray(new String[tail.size()]);
         Arrays.sort(specs);
         // there will be some replays, but those will be ignored
@@ -592,7 +607,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
         }
         // unsubscribe from old
         for (Uplink up : unsubscribeFrom) {
-            up.deliver(this.newEventSpec(OFF), JSONValue.NULL, this);
+            up.deliver(this.newEventSpec(OFF), JsonValue.NULL, this);
         }
         // subscribe to the new
         for (Uplink new_uplink : subscribeTo) {
@@ -602,35 +617,35 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
 
             Spec onSpec = this.newEventSpec(ON);
             this.addUplink(new PendingUplink(this, new_uplink, onSpec.getVersion()));
-            new_uplink.deliver(onSpec, new JSONValue(this.version().toString()), this);
+            new_uplink.deliver(onSpec, JsonValue.valueOf(this.version().toString()), this);
         }
     }
 
     /**
      * returns a Plain Javascript Object with the state
      */
-    public JSONValue getPOJO(boolean addVersionInfo) throws SwarmException {
-        Map<String, JSONValue> pojo = new HashMap<String, JSONValue>();
+    public JsonObject getPOJO(boolean addVersionInfo) throws SwarmException {
+        JsonObject pojo = new JsonObject();
         //TODO defaults
         for (FieldMeta field : this.typeMeta.getAllFields()) {
-            JSONValue fieldValue = field.get(this);
-            pojo.put(field.getName(), fieldValue);
+            JsonValue fieldValue = field.get(this);
+            pojo.set(field.getName(), fieldValue);
         }
         if (addVersionInfo) {
-            pojo.put("_id", new JSONValue(this.id.toString())); // not necassary
-            pojo.put("_version", new JSONValue(this.version));
+            pojo.set("_id", JsonValue.valueOf(this.id.toString())); // not necassary
+            pojo.set("_version", JsonValue.valueOf(this.version));
             if (this.vector != null) {
-                pojo.put("_vector", new JSONValue(this.vector));
+                pojo.set("_vector", JsonValue.valueOf(this.vector));
             }
             if (!this.oplog.isEmpty()) {
-                Map<String, JSONValue> oplog = new HashMap<String, JSONValue>(this.oplog.size());
-                for (Map.Entry<Spec, JSONValue> op : this.oplog.entrySet()) {
-                    oplog.put(op.getKey().toString(), op.getValue());
+                JsonObject oplog = new JsonObject();
+                for (Map.Entry<Spec, JsonValue> op : this.oplog.entrySet()) {
+                    oplog.set(op.getKey().toString(), op.getValue());
                 }
-                pojo.put("_oplog", new JSONValue(oplog)); //TODO copy
+                pojo.set("_oplog", oplog); //TODO copy
             }
         }
-        return new JSONValue(pojo);
+        return pojo;
     }
 
     /**
@@ -640,7 +655,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
      * @param value operation params
      * @param source operation source
      */
-    public void unimplemented(Spec spec, JSONValue value, OpRecipient source) {
+    public void unimplemented(Spec spec, JsonValue value, OpRecipient source) {
         logger.warn("{}.unimplemented({}, {}, {})", this, spec, value, source);
     }
 
@@ -654,7 +669,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
         while (itUplinks.hasNext()) {
             OpRecipient uplink = itUplinks.next();
             if (uplink instanceof Peer) {
-                uplink.deliver(this.newEventSpec(OFF), JSONValue.NULL, this);
+                uplink.deliver(this.newEventSpec(OFF), JsonValue.NULL, this);
             }
             itUplinks.remove();
         }
@@ -662,7 +677,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
         Iterator<OpRecipient> itListeners = listeners.iterator();
         while (itListeners.hasNext()) {
             // FIXME no version token in spec ???
-            itListeners.next().deliver(spec.addToken(REOFF), JSONValue.NULL, this);
+            itListeners.next().deliver(spec.addToken(REOFF), JsonValue.NULL, this);
             itListeners.remove();
         }
 
@@ -679,7 +694,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
         }
     }
 
-    public void log(Spec spec, JSONValue value, Syncable object, OpRecipient source) {
+    public void log(Spec spec, JsonValue value, Syncable object, OpRecipient source) {
         if (ERROR.equals(spec.getOp())) {
             logger.warn("log: {}->{} {} {}", spec, value, object, source);
         } else {
@@ -687,7 +702,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
         }
     }
 
-    public void once(JSONValue evfilter, OpRecipient fn) throws SwarmException, JSONException {
+    public void once(JsonValue evfilter, OpRecipient fn) throws SwarmException {
         this.on(evfilter, new OnceOpRecipient(this, fn));
     }
 
@@ -761,21 +776,21 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
     protected class Deferred extends FilteringOpRecipient<OpRecipient> {
 
         private Spec spec;
-        private JSONValue filter;
+        private JsonValue filter;
 
-        public Deferred(Spec spec, JSONValue filter, OpRecipient source) {
+        public Deferred(Spec spec, JsonValue filter, OpRecipient source) {
             super(source);
             this.spec = spec;
             this.filter = filter;
         }
 
         @Override
-        public boolean filter(Spec spec, JSONValue value, OpRecipient source) throws SwarmException {
+        public boolean filter(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
             return !(Syncable.this.version == null && !Syncable.this.isUplinked());
         }
 
         @Override
-        public void deliverInternal(Spec spec, JSONValue value, OpRecipient source) throws SwarmException {
+        public void deliverInternal(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
             Syncable.this.removeListener(this);
             Syncable.this.deliver(this.spec, this.filter, this.getInner());
         }

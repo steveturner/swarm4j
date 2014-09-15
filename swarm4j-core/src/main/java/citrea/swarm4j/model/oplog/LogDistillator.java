@@ -1,7 +1,8 @@
 package citrea.swarm4j.model.oplog;
 
 import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.value.JSONValue;
+import com.eclipsesource.json.JsonValue;
+
 
 import java.util.Map;
 
@@ -13,5 +14,5 @@ import java.util.Map;
  *         Time: 01:03
  */
 public interface LogDistillator {
-    Map<String, JSONValue> distillLog(Map<Spec, JSONValue> oplog);
+    Map<String, JsonValue> distillLog(Map<Spec, JsonValue> oplog);
 }

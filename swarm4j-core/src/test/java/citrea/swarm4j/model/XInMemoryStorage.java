@@ -2,8 +2,10 @@ package citrea.swarm4j.model;
 
 import citrea.swarm4j.model.spec.Spec;
 import citrea.swarm4j.model.spec.SpecToken;
-import citrea.swarm4j.model.value.JSONValue;
+
 import citrea.swarm4j.storage.InMemoryStorage;
+import com.eclipsesource.json.JsonObject;
+import com.eclipsesource.json.JsonValue;
 
 import java.util.Map;
 
@@ -21,12 +23,12 @@ public class XInMemoryStorage extends InMemoryStorage {
     }
 
     @Override
-    public JSONValue readState(Spec ti) {
+    public JsonObject readState(Spec ti) {
         return super.readState(ti);
     }
 
     @Override
-    public Map<Spec, JSONValue> readOps(Spec ti) {
+    public Map<Spec, JsonValue> readOps(Spec ti) {
         return super.readOps(ti);
     }
 }

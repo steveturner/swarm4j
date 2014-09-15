@@ -7,9 +7,9 @@ package citrea.swarm4j.model.pipe;
  *         Date: 02.09.2014
  *         Time: 17:58
  */
-public interface OpStream {
+public interface OpChannel {
 
-    void setSink(OpStreamListener sink);
+    void setSink(OpChannelListener sink);
     void sendMessage(String message);
 
     void close();

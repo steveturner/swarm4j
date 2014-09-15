@@ -11,12 +11,12 @@ import citrea.swarm4j.model.clocks.SecondPreciseClock;
 import citrea.swarm4j.model.spec.Spec;
 import citrea.swarm4j.model.spec.VersionVector;
 import citrea.swarm4j.model.spec.SpecToken;
-import citrea.swarm4j.model.value.JSONValue;
+
+import com.eclipsesource.json.JsonObject;
+import com.eclipsesource.json.JsonValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -31,7 +31,7 @@ public abstract class Storage implements Peer, Runnable {
 
     protected Logger logger = LoggerFactory.getLogger(Storage.class);
 
-    public final BlockingQueue<QueuedOperation> queue = new LinkedBlockingQueue<QueuedOperation>();
+    public final BlockingQueue<QueuedOperation> queue = new LinkedBlockingQueue<>();
     private Thread queueThread;
 
     protected Host host;
@@ -63,7 +63,7 @@ public abstract class Storage implements Peer, Runnable {
     }
 
     @Override
-    public void deliver(Spec spec, JSONValue value, OpRecipient source) throws SwarmException {
+    public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
         if (queueThread != Thread.currentThread()) {
             // queue
             try {
@@ -86,21 +86,21 @@ public abstract class Storage implements Peer, Runnable {
         }
     }
 
-    protected abstract void on(Spec spec, JSONValue value, OpRecipient source) throws SwarmException;
+    protected abstract void on(Spec spec, JsonValue value, OpRecipient source) throws SwarmException;
 
     protected abstract void off(Spec spec, OpRecipient source) throws SwarmException;
 
-    protected abstract void patch(Spec spec, JSONValue patch) throws SwarmException;
+    protected abstract void patch(Spec spec, JsonValue patch) throws SwarmException;
 
-    public void op(Spec spec, JSONValue val, OpRecipient source) throws SwarmException {
+    public void op(Spec spec, JsonValue val, OpRecipient source) throws SwarmException {
         Spec ti = spec.getTypeId();
         Spec vo = spec.getVersionOp();
-        Map<String, JSONValue> o = new HashMap<String, JSONValue>();
-        o.put(vo.toString(), val);
-        this.appendToLog(ti, new JSONValue(o));
+        JsonObject o = new JsonObject();
+        o.set(vo.toString(), val);
+        this.appendToLog(ti, o);
     }
 
-    protected abstract void appendToLog(Spec ti, JSONValue verop2val) throws SwarmException;
+    protected abstract void appendToLog(Spec ti, JsonObject verop2val) throws SwarmException;
 
     /**
      * Derive version vector from a state of a Syncable object.
@@ -109,23 +109,27 @@ public abstract class Storage implements Peer, Runnable {
      * @see citrea.swarm4j.model.spec.VersionVector
      * @return string representation of SpecMap
      */
-    public static String stateVersionVector(JSONValue state) {
+    public static String stateVersionVector(JsonObject state) {
         StringBuilder str = new StringBuilder();
-        JSONValue version = state.getFieldValue("_version");
-        if (!version.isEmpty()) {
-            str.append(version.getValueAsStr());
+        JsonValue version = state.get("_version");
+        if (!version.isNull()) {
+            str.append(version.asString());
         }
-        JSONValue vector = state.getFieldValue("_vector");
-        if (!vector.isEmpty()) {
-            str.append(version.getValueAsStr());
+        JsonValue vector = state.get("_vector");
+        if (vector != null && vector.isString()) {
+            str.append(version.asString());
         }
-        JSONValue oplog = state.getFieldValue("_oplog");
-        for (String spec : oplog.getFieldNames()) {
-            str.append(spec);
+        JsonValue oplog = state.get("_oplog");
+        if (oplog != null && oplog.isObject()) {
+            for (String spec : oplog.asObject().names()) {
+                str.append(spec);
+            }
         }
-        JSONValue tail = state.getFieldValue("_tail");
-        for (String spec : tail.getFieldNames()) {
-            str.append(spec);
+        JsonValue tail = state.get("_tail");
+        if (tail != null && tail.isObject()) {
+            for (String spec : tail.asObject().names()) {
+                str.append(spec);
+            }
         }
         return new VersionVector(str.toString()).toString();
     }

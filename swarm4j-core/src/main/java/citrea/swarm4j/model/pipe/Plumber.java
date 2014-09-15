@@ -1,6 +1,7 @@
 package citrea.swarm4j.model.pipe;
 
 import citrea.swarm4j.model.SwarmException;
+import citrea.swarm4j.model.spec.SpecToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,8 +26,8 @@ public final class Plumber implements Runnable {
     private Thread queueThread;
     final DelayQueue<Event> events = new DelayQueue<Event>();
 
-    public void start() {
-        new Thread(this, "plumber").start();
+    public void start(SpecToken hostId) {
+        new Thread(this, "Plumber" + hostId).start();
     }
 
     public void stop() {
@@ -66,13 +67,16 @@ public final class Plumber implements Runnable {
     }
 
     public void keepAlive(Pipe pipe) {
-        long now = new Date().getTime();
+        long now = System.currentTimeMillis();
         events.put(new KeepAliveEvent(pipe, now + keepAliveTimeout >> 2)); // TODO + Math.random() * 100
     }
 
     public void reconnect(Pipe pipe) {
-        long now = new Date().getTime();
-        events.put(new ReconnectEvent(pipe, now + pipe.reconnectTimeout));
+        long now = System.currentTimeMillis();
+        // reconnection timeout doubles after each unsuccessful attempt
+        // but not above maximum timeout (=30sec)
+        long delta = Math.min(pipe.reconnectTimeout << Math.min(pipe.connectionAttempt, 8), 30000);
+        events.put(new ReconnectEvent(pipe, now + delta));
     }
 
     private abstract class Event implements Delayed {
@@ -88,7 +92,7 @@ public final class Plumber implements Runnable {
 
         @Override
         public long getDelay(TimeUnit timeUnit) {
-            long remaining = time - new Date().getTime();
+            long remaining = time - System.currentTimeMillis();
             return timeUnit.convert(remaining, TimeUnit.MILLISECONDS);
         }
 
@@ -120,7 +124,7 @@ public final class Plumber implements Runnable {
             if (Pipe.State.CLOSED.equals(pipe.state)) {
                 return;
             }
-            long now = new Date().getTime();
+            long now = System.currentTimeMillis();
             long sinceRecv = now - pipe.lastRecvTS;
             long sinceSend = now - pipe.lastSendTS;
 
@@ -128,7 +132,7 @@ public final class Plumber implements Runnable {
                 pipe.sendMessage("{}");
             }
             if (sinceRecv > keepAliveTimeout) {
-                pipe.close("stream timeout");
+                pipe.close("channel timeout");
             }
             pipe.plumber.keepAlive(pipe);
         }
@@ -142,12 +146,14 @@ public final class Plumber implements Runnable {
 
         @Override
         public void run() {
+            logger.debug("reconnecting {} attempt={}", pipe, pipe.connectionAttempt);
             if (pipe.uri != null) {
-                // TODO double reconnection timeout
                 try {
-                    pipe.host.connect(pipe.uri, Math.min(pipe.reconnectTimeout << 1, 30000));
+                    pipe.host.connect(pipe.uri, pipe.reconnectTimeout, pipe.connectionAttempt + 1);
                 } catch (SwarmException e) {
-                    // TODO log exception
+                    pipe.close(e.getMessage());
+                } catch (UnsupportedProtocolException e) {
+                    pipe.close(e.getMessage());
                 }
             }
         }

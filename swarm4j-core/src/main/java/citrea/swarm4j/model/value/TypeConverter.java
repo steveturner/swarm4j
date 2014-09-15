@@ -1,5 +1,7 @@
 package citrea.swarm4j.model.value;
 
+import com.eclipsesource.json.JsonValue;
+
 /**
  * Created with IntelliJ IDEA.
  *
@@ -9,6 +11,6 @@ package citrea.swarm4j.model.value;
  */
 public interface TypeConverter<T> {
 
-    JSONValue toJSONValue(T value);
-    T fromJSONValue(JSONValue value);
+    JsonValue toJsonValue(T value);
+    T fromJsonValue(JsonValue value);
 }

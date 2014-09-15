@@ -5,17 +5,16 @@ import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.callback.Peer;
 import citrea.swarm4j.model.spec.Spec;
 import citrea.swarm4j.model.spec.SpecToken;
-import citrea.swarm4j.model.value.JSONValue;
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.json.JSONStringer;
-import org.json.JSONTokener;
+
+import com.eclipsesource.json.JsonObject;
+import com.eclipsesource.json.JsonValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.util.*;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created with IntelliJ IDEA.
@@ -24,19 +23,18 @@ import java.util.Set;
  *         Date: 02.09.2014
  *         Time: 15:49
  *
- * TODO keep-alive
- * TODO
  */
-public class Pipe implements OpStreamListener, OpRecipient, Peer {
+public class Pipe implements OpChannelListener, OpRecipient, Peer {
     public static Logger logger = LoggerFactory.getLogger(Pipe.class);
 
-    public static final Set<SpecToken> SUBSCRIPTION_OPERATIONS = new HashSet<SpecToken>(Arrays.asList(
+    private static final AtomicInteger idSeq = new AtomicInteger(0);
+
+    public static final Set<SpecToken> SUBSCRIPTION_OPERATIONS = new HashSet<>(Arrays.asList(
             Syncable.ON,
-            Syncable.OFF,
-            Syncable.REON,
-            Syncable.REOFF
+            Syncable.REON
     ));
 
+    private final int id;
     protected final Plumber plumber;
     protected State state;
     protected long lastRecvTS = -1L;
@@ -44,24 +42,27 @@ public class Pipe implements OpStreamListener, OpRecipient, Peer {
 
     protected HostPeer host;
     protected URI uri;
-    protected OpStream stream;
+    protected OpChannel channel;
     protected SpecToken peerId;
     protected Boolean isOnSent = null;
     protected long reconnectTimeout;
+    protected int connectionAttempt;
 
     public Pipe(HostPeer host, Plumber plumber) {
+        this.id = idSeq.incrementAndGet();
         this.host = host;
         this.plumber = plumber;
         this.state = State.NEW;
+        this.connectionAttempt = 0;
     }
 
     @Override
-    public void onMessage(String message) throws SwarmException, JSONException {
+    public void onMessage(String message) throws SwarmException {
         if (logger.isDebugEnabled()) {
-            logger.debug("{} <= {}: {}", host.getPeerId(), (!State.NEW.equals(state) ? this.peerId.toString() : "?"), message);
+            logger.debug("{} << {}", this, message);
         }
         this.lastRecvTS = new Date().getTime();
-        for (Map.Entry<Spec, JSONValue> op : parse(message).entrySet()) {
+        for (Map.Entry<Spec, JsonValue> op : parse(message).entrySet()) {
             switch (state) {
                 case NEW:
                     processHandshake(op.getKey(), op.getValue());
@@ -77,14 +78,15 @@ public class Pipe implements OpStreamListener, OpRecipient, Peer {
     }
 
     @Override
-    public void onClose() {
-        this.stream.setSink(null);
-        this.stream = null;
-        this.close(null);
+    public void onClose(String error) {
+        logger.debug("{}.onClose({})", this, error);
+        this.channel.setSink(null);
+        this.channel = null;
+        this.close(error);
     }
 
     @Override
-    public void deliver(Spec spec, JSONValue value, OpRecipient source) throws SwarmException {
+    public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
         String message = Pipe.serialize(spec, value);
 
         sendMessage(message);
@@ -105,16 +107,16 @@ public class Pipe implements OpStreamListener, OpRecipient, Peer {
 
     protected void sendMessage(String message) {
         if (logger.isDebugEnabled()) {
-            logger.debug("{} => {}: {}", host.getPeerId(), (!State.NEW.equals(state) ? peerId.toString() : "?"), message);
+            logger.debug("{} >> {}", this, message);
         }
-        if (stream == null) {
+        if (channel == null) {
             return;
         }
-        stream.sendMessage(message);
+        channel.sendMessage(message);
         lastSendTS = new Date().getTime();
     }
 
-    protected void processHandshake(Spec spec, JSONValue value) throws SwarmException {
+    protected void processHandshake(Spec spec, JsonValue value) throws SwarmException {
         if (spec == null) {
             throw new IllegalArgumentException("handshake has no spec");
         }
@@ -135,19 +137,17 @@ public class Pipe implements OpStreamListener, OpRecipient, Peer {
         }
     }
 
-    public void setStream(OpStream stream) {
-        this.stream = stream;
-        this.stream.setSink(this);
+    public void bindChannel(OpChannel channel) {
+        this.channel = channel;
+        this.channel.setSink(this);
     }
 
-    public void setStream(URI upstreamURI) {
+    public void setReconnectionUri(URI upstreamURI) {
         this.uri = upstreamURI;
-        //TODO pipe reconnection
-        throw new UnsupportedOperationException("Not realized yet");
     }
 
     public void close(String error) {
-        logger.info("{} closing {}", this, error != null ? error : "correct");
+        logger.info("{}.close({})", this, error != null ? error : "");
         if (error != null && this.uri != null && !State.CLOSED.equals(state)) {
             plumber.reconnect(this);
         }
@@ -156,7 +156,7 @@ public class Pipe implements OpStreamListener, OpRecipient, Peer {
                 // emulate normal off
                 Spec offspec = this.host.newEventSpec(this.isOnSent ? Syncable.OFF : Syncable.REOFF);
                 try {
-                    this.host.deliver(offspec, JSONValue.NULL, this);
+                    this.host.deliver(offspec, JsonValue.NULL, this);
                 } catch (SwarmException e) {
                     logger.warn("{}.close(): Error delivering {} to host", this, offspec);
                 }
@@ -164,20 +164,24 @@ public class Pipe implements OpStreamListener, OpRecipient, Peer {
             this.state = State.CLOSED; // can't pass any more messages
         }
         // TODO plumber.stopKeepAlive ?
-        if (this.stream != null) {
+        if (this.channel != null) {
             try {
-                this.stream.close();
+                this.channel.close();
             } catch (Exception e) {
                 // ignore
             }
-            this.stream = null;
+            this.channel = null;
         }
     }
 
     @Override
     public void setPeerId(SpecToken id) {
         this.peerId = id;
+        // now we know remote peer id  it means pipe is handshaken
         this.state = State.HANDSHAKEN;
+        // reset connection attempt
+        this.connectionAttempt = 0;
+        // start sending keep-alive
         this.plumber.keepAlive(this);
         logger.info("{} handshaken", this);
     }
@@ -191,7 +195,7 @@ public class Pipe implements OpStreamListener, OpRecipient, Peer {
 
     @Override
     public Spec getTypeId() {
-        if (typeId == null && State.HANDSHAKEN.equals(state)) {
+        if (typeId == null && !State.NEW.equals(state)) {
             typeId = new Spec(Host.HOST, peerId);
         }
         return typeId;
@@ -199,49 +203,42 @@ public class Pipe implements OpStreamListener, OpRecipient, Peer {
 
     @Override
     public String toString() {
-        return "Pipe{ " + host.getPeerId() +
-                " <=> " + (!State.NEW.equals(state) ? peerId : "?") +
-                " }";
-    }
-
-    //TODO configurable serializer
-    public static String serialize(Spec spec, JSONValue value) throws SwarmException {
-        JSONStringer payload = new JSONStringer();
-        try {
-            payload.object();
-            payload.key(spec.toString());
-            payload.value(value);
-            payload.endObject();
-        } catch (JSONException e) {
-            throw new SwarmException("error building json: " + e.getMessage(), e);
-        }
-        return payload.toString();
-    }
-
-    public static SortedMap<Spec, JSONValue> parse(String message) throws JSONException {
-
-        JSONTokener jsonTokener = new JSONTokener(message);
-        Object bandleJSON = jsonTokener.nextValue();
-        if (!(bandleJSON instanceof JSONObject)) {
-            throw new IllegalArgumentException("message must be a JSON");
-        }
-
-        JSONObject bundle = (JSONObject) bandleJSON;
-
-        // sort operations by spec
-        SortedMap<Spec, JSONValue> operations = new TreeMap<Spec, JSONValue>(Spec.ORDER_NATURAL);
-        Iterator it = bundle.keys();
-        while (it.hasNext()) {
-            final String specStr = String.valueOf(it.next());
-            final Spec spec = new Spec(specStr);
-            final JSONValue value = JSONValue.convert(bundle.get(specStr));
-            operations.put(spec, value);
-        }
-        return operations;
+        return "" + host.getPeerId() +
+                "-(" + id + ")-" +
+                (!State.NEW.equals(state) ? peerId : "?");
     }
 
     public void setReconnectTimeout(long reconnectTimeout) {
         this.reconnectTimeout = reconnectTimeout;
+    }
+
+    public OpChannel getChannel() {
+        return channel;
+    }
+
+    public void setConnectionAttempt(int connectionAttempt) {
+        this.connectionAttempt = connectionAttempt;
+    }
+
+    //TODO configurable serializer
+    public static String serialize(Spec spec, JsonValue value) throws SwarmException {
+        JsonObject payload = new JsonObject();
+        payload.set(spec.toString(), value);
+        return payload.toString();
+    }
+
+    public static SortedMap<Spec, JsonValue> parse(String message) {
+
+        JsonObject bundle = JsonObject.readFrom(message);
+
+        // sort operations by spec
+        SortedMap<Spec, JsonValue> operations = new TreeMap<>(Spec.ORDER_NATURAL);
+        for (String specStr : bundle.names()) {
+            final Spec spec = new Spec(specStr);
+            final JsonValue value = bundle.get(specStr);
+            operations.put(spec, value);
+        }
+        return operations;
     }
 
     /**

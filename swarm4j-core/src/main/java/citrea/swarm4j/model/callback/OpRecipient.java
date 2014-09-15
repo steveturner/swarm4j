@@ -2,7 +2,8 @@ package citrea.swarm4j.model.callback;
 
 import citrea.swarm4j.model.SwarmException;
 import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.value.JSONValue;
+import com.eclipsesource.json.JsonValue;
+
 
 import java.util.EventListener;
 
@@ -17,7 +18,7 @@ public interface OpRecipient extends EventListener {
 
     public static OpRecipient NOOP = new OpRecipient() {
         @Override
-        public void deliver(Spec spec, JSONValue value, OpRecipient source) throws SwarmException {
+        public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
             //do nothing
         }
 
@@ -27,5 +28,5 @@ public interface OpRecipient extends EventListener {
         }
     };
 
-    void deliver(Spec spec, JSONValue value, OpRecipient source) throws SwarmException;
+    void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException;
 }

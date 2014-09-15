@@ -3,15 +3,13 @@ package citrea.swarm4j.server;
 import citrea.swarm4j.model.Host;
 import citrea.swarm4j.model.Syncable;
 import citrea.swarm4j.model.pipe.Pipe;
-import citrea.swarm4j.model.spec.SpecQuant;
-import citrea.swarm4j.model.spec.SpecToken;
 import citrea.swarm4j.util.Utils;
-import citrea.swarm4j.model.value.JSONValue;
+
 import citrea.swarm4j.model.SwarmException;
+import com.eclipsesource.json.JsonValue;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
-import org.json.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +29,7 @@ public class WSServerImpl extends WebSocketServer {
     private final Utils utils;
 
     private final Host host;
-    private Map<WebSocket, WSWrapper> knownPipes = new HashMap<WebSocket, WSWrapper>();
+    private Map<WebSocket, WSWrapper> knownPipes = new HashMap<>();
 
     public WSServerImpl(int port, int decoders, Host host, Utils utils) throws UnknownHostException {
         super(new InetSocketAddress(port), decoders);
@@ -52,7 +50,7 @@ public class WSServerImpl extends WebSocketServer {
     public void onClose( WebSocket conn, int code, String reason, boolean remote ) {
         WSWrapper ws = knownPipes.get(conn);
         if (ws != null) {
-            ws.close(); // TODO stream.close
+            ws.close(); // TODO channel.close
         }
         knownPipes.remove(conn);
         logger.info("pipeClose");
@@ -62,7 +60,7 @@ public class WSServerImpl extends WebSocketServer {
     public void onError( WebSocket conn, Exception ex ) {
         WSWrapper ws = knownPipes.get(conn);
         if (ws != null) {
-            ws.close(); // TODO stream.close
+            ws.close(); // TODO channel.close
         }
         knownPipes.remove(conn);
         logger.warn("pipeError error={}", ex.getMessage(), ex);
@@ -83,7 +81,7 @@ public class WSServerImpl extends WebSocketServer {
                 ws.sendMessage(
                         Pipe.serialize(
                                 host.newEventSpec(Syncable.ERROR),
-                                new JSONValue("error parsing or generating JSON: " + e.getMessage())
+                                JsonValue.valueOf("error parsing or generating JSON: " + e.getMessage())
                         )
                 );
             } catch (SwarmException e1) {

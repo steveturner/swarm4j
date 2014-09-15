@@ -1,7 +1,9 @@
 package citrea.swarm4j.model.callback;
 
 import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.value.JSONValue;
+import com.eclipsesource.json.JsonObject;
+import com.eclipsesource.json.JsonValue;
+
 
 /**
  * Created with IntelliJ IDEA.
@@ -20,8 +22,9 @@ public class FieldChangeOpRecipient extends FilteringOpRecipient<OpRecipient> {
     }
 
     @Override
-    public boolean filter(Spec spec, JSONValue value, OpRecipient source) {
-        return value.getFieldNames().contains(this.fieldName);
+    public boolean filter(Spec spec, JsonValue value, OpRecipient source) {
+        return value.isObject() &&
+                value.asObject().names().contains(this.fieldName);
     }
 
     @Override

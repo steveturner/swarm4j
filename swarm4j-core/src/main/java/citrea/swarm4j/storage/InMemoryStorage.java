@@ -6,7 +6,9 @@ import citrea.swarm4j.model.Syncable;
 import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.spec.Spec;
 import citrea.swarm4j.model.spec.SpecToken;
-import citrea.swarm4j.model.value.JSONValue;
+
+import com.eclipsesource.json.JsonObject;
+import com.eclipsesource.json.JsonValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,8 +40,8 @@ public class InMemoryStorage extends Storage {
     public static final Logger logger = LoggerFactory.getLogger(InMemoryStorage.class);
 
     // TODO async storage
-    private Map<Spec, Map<Spec, JSONValue>> tails = new HashMap<Spec, Map<Spec, JSONValue>>();
-    private Map<Spec, JSONValue> states = new HashMap<Spec, JSONValue>();
+    private Map<Spec, Map<Spec, JsonValue>> tails = new HashMap<>();
+    private Map<Spec, JsonObject> states = new HashMap<>();
 
     protected Map<Spec, List<OpRecipient>> listeners;
 
@@ -51,23 +53,23 @@ public class InMemoryStorage extends Storage {
     }
 
     @Override
-    public void op(Spec spec, JSONValue val, OpRecipient source) throws SwarmException {
+    public void op(Spec spec, JsonValue val, OpRecipient source) throws SwarmException {
         if (!this.writeOp(spec, val, source)) {
             // The storage piggybacks on the object's state/log handling logic
             // First, it adds an op to the log tail unless the log is too long...
             // ...otherwise it sends back a subscription effectively requesting
             // the state, on state arrival zeroes the tail.
-            source.deliver(spec.overrideToken(Syncable.REON), new JSONValue(Syncable.INIT.toString()), this);
+            source.deliver(spec.overrideToken(Syncable.REON), JsonValue.valueOf(Syncable.INIT.toString()), this);
         }
     }
 
     @Override
-    protected void appendToLog(Spec ti, JSONValue verop2val) throws SwarmException {
+    protected void appendToLog(Spec ti, JsonObject verop2val) throws SwarmException {
         throw new UnsupportedOperationException("Not supported for InMemoryStorage");
     }
 
     @Override
-    public void patch(Spec spec, JSONValue patch) throws SwarmException {
+    public void patch(Spec spec, JsonValue patch) throws SwarmException {
         this.writeState(spec, patch);
     }
 
@@ -77,13 +79,13 @@ public class InMemoryStorage extends Storage {
     }
 
     @Override
-    public void on(Spec spec, JSONValue value, OpRecipient source) throws SwarmException {
+    public void on(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
         Spec ti = spec.getTypeId();
 
         if (this.listeners != null) {
             List<OpRecipient> ls = this.listeners.get(ti);
             if (ls == null) {
-                ls = new ArrayList<OpRecipient>();
+                ls = new ArrayList<>();
                 this.listeners.put(ti, ls);
                 ls.add(source);
             } else if (!ls.contains(source)) {
@@ -91,27 +93,30 @@ public class InMemoryStorage extends Storage {
             }
         }
 
-        JSONValue state = this.readState(ti);
+        JsonObject state = this.readState(ti);
         if (state == null) {
-            state = new JSONValue(new HashMap<String, JSONValue>());
-            state.setFieldValue("_version", new JSONValue(SpecToken.ZERO_VERSION.toString()));
+            state = new JsonObject();
+            state.set("_version", JsonValue.valueOf(SpecToken.ZERO_VERSION.toString()));
         }
 
-        Map<Spec, JSONValue> tail = this.readOps(ti);
+        Map<Spec, JsonValue> tail = this.readOps(ti);
 
         if (tail != null) {
-            JSONValue stateTail = state.getFieldValue("_tail");
-            if (stateTail.isEmpty()) {
-                stateTail = new JSONValue(new HashMap<String, JSONValue>());
+            JsonObject stateTail;
+            JsonValue val = state.get("_tail");
+            if (val == null || !val.isObject()) {
+                stateTail = new JsonObject();
+            } else {
+                stateTail = val.asObject();
             }
-            for (Map.Entry<Spec, JSONValue> op : tail.entrySet()) {
-                stateTail.setFieldValue(op.getKey().toString(), op.getValue());
+            for (Map.Entry<Spec, JsonValue> op : tail.entrySet()) {
+                stateTail.set(op.getKey().toString(), op.getValue());
             }
-            state.setFieldValue("_tail", stateTail);
+            state.set("_tail", stateTail);
         }
         Spec tiv = ti.addToken(spec.getVersion());
         source.deliver(tiv.addToken(Syncable.PATCH), state, this);
-        source.deliver(tiv.addToken(Syncable.REON), new JSONValue(Storage.stateVersionVector(state)), this);
+        source.deliver(tiv.addToken(Syncable.REON), JsonValue.valueOf(Storage.stateVersionVector(state)), this);
     }
 
     @Override
@@ -133,19 +138,21 @@ public class InMemoryStorage extends Storage {
         }
     }
 
-    protected void writeState(Spec spec, JSONValue state) {
+    protected void writeState(Spec spec, JsonValue state) {
         Spec ti = spec.getTypeId();
-        this.states.put(ti, state);
+        if (state != null && state.isObject()) {
+            this.states.put(ti, (JsonObject) state);
+        }
         // tail is zeroed on state flush
-        this.tails.put(ti, new HashMap<Spec, JSONValue>());
+        this.tails.put(ti, new HashMap<Spec, JsonValue>());
     }
 
-    protected boolean writeOp(Spec spec, JSONValue value, OpRecipient source) {
+    protected boolean writeOp(Spec spec, JsonValue value, OpRecipient source) {
         Spec ti = spec.getTypeId();
         Spec vo = spec.getVersionOp();
-        Map<Spec, JSONValue> tail = this.tails.get(ti);
+        Map<Spec, JsonValue> tail = this.tails.get(ti);
         if (tail == null) {
-            tail = new HashMap<Spec, JSONValue>();
+            tail = new HashMap<>();
             this.tails.put(ti, tail);
         }
         if (tail.containsKey(vo)) {
@@ -156,11 +163,11 @@ public class InMemoryStorage extends Storage {
         return (count < 3);
     }
 
-    protected JSONValue readState(Spec ti) {
+    protected JsonObject readState(Spec ti) {
         return this.states.get(ti);
     }
 
-    protected Map<Spec, JSONValue> readOps(Spec ti) {
+    protected Map<Spec, JsonValue> readOps(Spec ti) {
         return this.tails.get(ti);
     }
 

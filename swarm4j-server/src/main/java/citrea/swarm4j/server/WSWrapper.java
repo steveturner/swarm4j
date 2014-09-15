@@ -1,10 +1,9 @@
 package citrea.swarm4j.server;
 
 import citrea.swarm4j.model.*;
-import citrea.swarm4j.model.pipe.OpStream;
-import citrea.swarm4j.model.pipe.OpStreamListener;
+import citrea.swarm4j.model.pipe.OpChannel;
+import citrea.swarm4j.model.pipe.OpChannelListener;
 import org.java_websocket.WebSocket;
-import org.json.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,10 +14,10 @@ import org.slf4j.LoggerFactory;
  *         Date: 31/10/13
  *         Time: 17:58
  */
-public class WSWrapper implements OpStream {
+public class WSWrapper implements OpChannel {
     private static final Logger logger = LoggerFactory.getLogger(WSWrapper.class);
 
-    private OpStreamListener sink;
+    private OpChannelListener sink;
 
     private final WebSocket ws;
     private final String pipeId;
@@ -30,7 +29,7 @@ public class WSWrapper implements OpStream {
     }
 
     @Override
-    public void setSink(OpStreamListener sink) {
+    public void setSink(OpChannelListener sink) {
         this.sink = sink;
     }
 
@@ -40,7 +39,7 @@ public class WSWrapper implements OpStream {
         ws.send(message);
     }
 
-    public void processMessage(String message) throws JSONException, SwarmException {
+    public void processMessage(String message) throws SwarmException {
         if (this.sink != null) {
             logger.debug("{}.processMessage({})", this, message);
             this.sink.onMessage(message);
@@ -54,7 +53,7 @@ public class WSWrapper implements OpStream {
     public void close() {
         logger.debug("{}.close()", this);
         if (sink != null) {
-            sink.onClose();
+            sink.onClose(null);
         }
         ws.close();
     }

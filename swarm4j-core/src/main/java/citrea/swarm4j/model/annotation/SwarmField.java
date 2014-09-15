@@ -18,5 +18,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.FIELD)
 public @interface SwarmField {
 
-    //TODO allow specifying (JSONValue <-> FieldType convertor)
+    //TODO allow specifying (JsonValue <-> FieldType convertor)
 }

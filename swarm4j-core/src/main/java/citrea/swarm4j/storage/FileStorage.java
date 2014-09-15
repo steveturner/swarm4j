@@ -6,11 +6,10 @@ import citrea.swarm4j.model.Syncable;
 import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.spec.Spec;
 import citrea.swarm4j.model.spec.SpecToken;
-import citrea.swarm4j.model.value.JSONValue;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.json.JSONTokener;
+
+import com.eclipsesource.json.JsonArray;
+import com.eclipsesource.json.JsonObject;
+import com.eclipsesource.json.JsonValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,10 +49,10 @@ public class FileStorage extends Storage {
 
     public static final int MAX_LOG_SIZE = 1 << 15;
 
-    private Map<Spec, Map<Spec, JSONValue>> tails = new HashMap<Spec, Map<Spec, JSONValue>>();
+    private Map<Spec, Map<Spec, JsonValue>> tails = new HashMap<>();
     private String dir;
     private int logCount;
-    private Queue<String> dirtyQueue = new ArrayDeque<String>();
+    private Queue<String> dirtyQueue = new ArrayDeque<>();
     private FileChannel logFile = null;
     private int logSize = 0;
     private long pulling;
@@ -84,22 +83,22 @@ public class FileStorage extends Storage {
     }
 
     @Override
-    protected void appendToLog(Spec ti, JSONValue verop2val) throws SwarmException {
-        Map<Spec, JSONValue> tail = this.tails.get(ti);
+    protected void appendToLog(Spec ti, JsonObject verop2val) throws SwarmException {
+        Map<Spec, JsonValue> tail = this.tails.get(ti);
         if (tail == null) {
-            tail = new HashMap<Spec, JSONValue>();
+            tail = new HashMap<>();
             this.tails.put(ti, tail);
         }
         // stash ops in RAM (can't seek in the log file so need that)
-        for (String verop : verop2val.getFieldNames()) {
-            tail.put(new Spec(verop), verop2val.getFieldValue(verop));
+        for (String verop : verop2val.names()) {
+            tail.put(new Spec(verop), verop2val.get(verop));
         }
         // queue the object for state flush
         this.dirtyQueue.add(ti.toString());
         // serialize the op as JSON
-        Map<String, JSONValue> o = new HashMap<String, JSONValue>();
-        o.put(ti.toString(), verop2val);  // TODO annoying
-        String buf = new JSONValue(o).toJSONString() + ",\n";
+        JsonObject o = new JsonObject();
+        o.set(ti.toString(), verop2val);  // TODO annoying
+        String buf = o.toString() + ",\n";
         ByteBuffer bbuf = ByteBuffer.wrap(buf.getBytes());
         // append JSON to the log file
         try {
@@ -141,14 +140,19 @@ public class FileStorage extends Storage {
         // so we use this trick. As object lifecycles differ in Host
         // and FileStorage we can't safely access the object directly.
         final Spec onSpec = ti.addToken(this.time()).addToken(Syncable.ON);
-        this.host.deliver(onSpec, new JSONValue(".init!0"), this);
+        this.host.deliver(onSpec, JsonValue.valueOf(".init!0"), this);
     }
 
     @Override
-    public void patch(Spec spec, JSONValue patch) throws SwarmException {
+    public void patch(Spec spec, JsonValue patchVal) throws SwarmException {
+        if (!(patchVal instanceof JsonObject)) return;
+        JsonObject patch = (JsonObject) patchVal;
         Spec ti = spec.getTypeId();
-        if (patch.getFieldValue("_version").isEmpty()) { // no full state, just the tail
-            this.appendToLog(ti, patch.getFieldValue("_tail"));
+        if (patch.get("_version").isNull()) { // no full state, just the tail
+            JsonValue tail = patch.get("_tail");
+            if (tail.isObject()) {
+                this.appendToLog(ti, tail.asObject());
+            }
             return;
         }
         // in the [>on <patch1 <reon >patch2] handshake pattern, we
@@ -168,9 +172,8 @@ public class FileStorage extends Storage {
         }
         // finally, send JSON to the file
         try {
-            RandomAccessFile stateFile = new RandomAccessFile(stateFileName, "w");
-            try {
-                String json = patch.toJSONString();
+            try (RandomAccessFile stateFile = new RandomAccessFile(stateFileName, "w")) {
+                String json = patch.toString();
                 ByteBuffer buf = ByteBuffer.wrap(json.getBytes(Charset.forName("UTF-8")));
 
                 FileChannel channel = stateFile.getChannel();
@@ -180,8 +183,6 @@ public class FileStorage extends Storage {
                 }
                 channel.force(false);
                 channel.truncate(buf.capacity());
-            } finally {
-                stateFile.close();
             }
 
             this.pulling = 0;
@@ -229,51 +230,50 @@ public class FileStorage extends Storage {
     }
 
     @Override
-    public void on(Spec spec, JSONValue base, OpRecipient replica) throws SwarmException {
+    public void on(Spec spec, JsonValue base, OpRecipient replica) throws SwarmException {
         Spec ti = spec.getTypeId();
         String stateFileName = this.stateFileName(ti);
 
         // read in the state
-        FileInputStream stateFileStream;
+        BufferedReader stateFileReader;
         try {
-            stateFileStream = new FileInputStream(stateFileName);
+            stateFileReader = new BufferedReader(new FileReader(stateFileName));
         } catch (FileNotFoundException e) {
-            stateFileStream = null;
+            stateFileReader = null;
         }
 
         // load state
-        JSONValue state = new JSONValue(Collections.<String, JSONValue>emptyMap());
-        if (stateFileStream == null) {
-            state.setFieldValue("_version", new JSONValue("!0"));
+        JsonObject state = new JsonObject();
+        if (stateFileReader == null) {
+            state.set("_version", JsonValue.valueOf(SpecToken.ZERO_VERSION.toString()));
         } else {
             try {
-                JSONTokener jsonTokener = new JSONTokener(stateFileStream);
-                Object jsonObject = jsonTokener.nextValue();
-
-                if (!(jsonObject instanceof JSONObject)) {
-                    logger.warn("onMessage message must be a JSON");
-                    throw new JSONException("Waiting object, got " + (jsonObject == null ? "null" : jsonObject.getClass()));
+                StringBuilder stateData = new StringBuilder();
+                String line;
+                while ((line = stateFileReader.readLine()) != null) {
+                    stateData.append(line);
                 }
-
-                state = JSONValue.convert(jsonObject);
-                Map<Spec, JSONValue> tail = this.tails.get(ti);
+                state = JsonObject.readFrom(stateData.toString());
+                Map<Spec, JsonValue> tail = this.tails.get(ti);
                 if (tail != null) {
-                    JSONValue state_tail = state.getFieldValue("_tail");
-                    if (state_tail.isEmpty()) {
-                        state_tail = new JSONValue(new HashMap<String, JSONValue>());
+                    JsonValue state_tail_val = state.get("_tail");
+                    JsonObject state_tail;
+                    if (state_tail_val.isObject()) {
+                        state_tail = state_tail_val.asObject();
+                    } else {
+                        state_tail = new JsonObject();
                     }
-                    for (Map.Entry<Spec, JSONValue> op : tail.entrySet()) {
-                        state_tail.setFieldValue(op.getKey().toString(), op.getValue());
+                    for (Map.Entry<Spec, JsonValue> op : tail.entrySet()) {
+                        state_tail.set(op.getKey().toString(), op.getValue());
                     }
-                    state.setFieldValue("_tail", state_tail);
+                    state.set("_tail", state_tail);
                 }
 
-
-            } catch (JSONException e) {
-                throw new SwarmException("Wrong state file format: " + e.getMessage(), e);
+            } catch (IOException e) {
+                throw new SwarmException("IO error: " + e.getMessage(), e);
             } finally {
                 try {
-                    stateFileStream.close();
+                    stateFileReader.close();
                 } catch (IOException e) {
                     // ignore
                 }
@@ -283,13 +283,13 @@ public class FileStorage extends Storage {
         Spec tiv = ti.addToken(spec.getVersion());
         replica.deliver(tiv.addToken(Syncable.PATCH), state, this);
         String versionVector = Storage.stateVersionVector(state);
-        replica.deliver(tiv.addToken(Syncable.REON), new JSONValue(versionVector), this);
+        replica.deliver(tiv.addToken(Syncable.REON), JsonValue.valueOf(versionVector), this);
     }
 
     @Override
     public void off(Spec spec, OpRecipient src) throws SwarmException {
         // if (this.tails[ti]) TODO half-close
-        src.deliver(spec.overrideToken(Syncable.REON), JSONValue.NULL, this);
+        src.deliver(spec.overrideToken(Syncable.REON), JsonValue.NULL, this);
     }
 
     /**
@@ -318,8 +318,7 @@ public class FileStorage extends Storage {
                 json.append("[");
 
                 CharsetDecoder decoder = Charset.forName("UTF-8").newDecoder();
-                RandomAccessFile file = new RandomAccessFile(logFile, "r");
-                try {
+                try (RandomAccessFile file = new RandomAccessFile(logFile, "r")) {
                     FileChannel channel = file.getChannel();
                     buf.clear();
                     while (channel.read(buf) > 0) {
@@ -327,41 +326,35 @@ public class FileStorage extends Storage {
                         json.append(decoder.reset().decode(buf));
                         buf.clear();
                     }
-                } finally {
-                    file.close();
                 }
 
                 json.append("{}]");
 
-                JSONTokener jsonTokener = new JSONTokener(json.toString());
-                Object jsonObject = jsonTokener.nextValue();
+                JsonArray arr = JsonArray.readFrom(json.toString());
+                for (int i = 0, l = arr.size(); i < l; i++) {
+                    JsonValue block = arr.get(i);
+                    if (block.isObject()) {
+                        JsonObject blockObj = block.asObject();
+                        for (String tidoid : blockObj.names()) {
+                            Map<Spec, JsonValue> tail = this.tails.get(new Spec(tidoid));
+                            JsonValue ops = blockObj.get(tidoid);
+                            if (tail == null) {
+                                tail = new HashMap<>();
+                                this.tails.put(new Spec(tidoid), tail);
+                                this.dirtyQueue.add(tidoid);
+                            }
+                            if (!ops.isObject()) continue;
 
-                if (!(jsonObject instanceof JSONArray)) {
-                    logger.warn("data must be a JSON array");
-                    throw new JSONException("Waiting array, got " + (jsonObject == null ? "null" : jsonObject.getClass()));
-                }
-
-                JSONArray arr = (JSONArray) jsonObject;
-                for (int i = 0, l = arr.length(); i < l; i++) {
-                    JSONValue block = JSONValue.convert(arr.get(i));
-                    for (String tidoid : block.getFieldNames()) {
-                        Map<Spec, JSONValue> tail = this.tails.get(new Spec(tidoid));
-                        JSONValue ops = block.getFieldValue(tidoid);
-                        if (tail == null) {
-                            tail = new HashMap<Spec, JSONValue>();
-                            this.tails.put(new Spec(tidoid), tail);
-                            this.dirtyQueue.add(tidoid);
-                        }
-                        for (String vidop : ops.getFieldNames()) {
-                            tail.put(new Spec(vidop), ops.getFieldValue(vidop));
+                            JsonObject opsObj = ops.asObject();
+                            for (String vidop : opsObj.names()) {
+                                tail.put(new Spec(vidop), opsObj.get(vidop));
+                            }
                         }
                     }
                     this.dirtyQueue.add(String.valueOf(this.logCount));
                 }
             }
         } catch (IOException e) {
-            throw new SwarmException("Error loading log: " + e.getMessage(), e);
-        } catch (JSONException e) {
             throw new SwarmException("Error loading log: " + e.getMessage(), e);
         }
     }

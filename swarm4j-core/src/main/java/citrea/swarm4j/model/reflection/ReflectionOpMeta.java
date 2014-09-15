@@ -1,11 +1,12 @@
 package citrea.swarm4j.model.reflection;
 
-import citrea.swarm4j.model.value.JSONValue;
+
 import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.Syncable;
 import citrea.swarm4j.model.annotation.SwarmOperationKind;
 import citrea.swarm4j.model.meta.OperationMeta;
 import citrea.swarm4j.model.spec.Spec;
+import com.eclipsesource.json.JsonValue;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -30,7 +31,7 @@ public class ReflectionOpMeta implements OperationMeta {
     }
 
     @Override
-    public void invoke(Syncable object, Spec spec, JSONValue value, OpRecipient source) throws SwarmMethodInvocationException {
+    public void invoke(Syncable object, Spec spec, JsonValue value, OpRecipient source) throws SwarmMethodInvocationException {
         try {
             switch (this.signature) {
                 case NONE:

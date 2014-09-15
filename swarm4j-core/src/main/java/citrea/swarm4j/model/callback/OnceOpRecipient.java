@@ -3,7 +3,8 @@ package citrea.swarm4j.model.callback;
 import citrea.swarm4j.model.SwarmException;
 import citrea.swarm4j.model.Syncable;
 import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.value.JSONValue;
+import com.eclipsesource.json.JsonValue;
+
 
 /**
  * Created with IntelliJ IDEA.
@@ -22,12 +23,12 @@ public class OnceOpRecipient extends FilteringOpRecipient<OpRecipient> {
     }
 
     @Override
-    protected boolean filter(Spec spec, JSONValue value, OpRecipient source) throws SwarmException {
+    protected boolean filter(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
         return true;
     }
 
     @Override
-    protected void deliverInternal(Spec spec, JSONValue value, OpRecipient source) throws SwarmException {
+    protected void deliverInternal(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
         super.deliverInternal(spec, value, source);
         obj.off(this);
     }

@@ -12,6 +12,8 @@
     <modules>
         <module>swarm4j-core</module>
         <module>swarm4j-server</module>
+        <module>swarm4j-client</module>
+        <module>swarm4j-android</module>
     </modules>
 
     <properties>
@@ -24,6 +26,10 @@
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>2.3.2</version>
+                <configuration>
+                    <source>1.7</source>
+                    <target>1.7</target>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

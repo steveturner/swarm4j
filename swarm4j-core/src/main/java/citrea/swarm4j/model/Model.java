@@ -8,7 +8,9 @@ import citrea.swarm4j.model.annotation.SwarmOperationKind;
 import citrea.swarm4j.model.meta.FieldMeta;
 import citrea.swarm4j.model.oplog.ModelLogDistillator;
 import citrea.swarm4j.model.spec.*;
-import citrea.swarm4j.model.value.JSONValue;
+import com.eclipsesource.json.JsonObject;
+import com.eclipsesource.json.JsonValue;
+
 
 import java.util.*;
 
@@ -33,7 +35,7 @@ public class Model extends Syncable {
         this.logDistillator = new ModelLogDistillator();
     }
 
-    public Model(JSONValue initialState, Host host) throws SwarmException {
+    public Model(JsonValue initialState, Host host) throws SwarmException {
         super(null, host);
         this.logDistillator = new ModelLogDistillator();
         this.set(initialState);
@@ -47,14 +49,14 @@ public class Model extends Syncable {
 
     @SwarmOperation(kind = SwarmOperationKind.Neutral)
     @Override
-    public void on(Spec spec, JSONValue base, OpRecipient source) throws SwarmException {
+    public void on(Spec spec, JsonValue base, OpRecipient source) throws SwarmException {
         //  support the model.on('field',callback_fn) pattern
-        if (!base.isEmpty() && base.isSimple()) {
-            String possibleFieldName = base.getValueAsStr();
+        if (!base.isNull() && base.isString()) {
+            String possibleFieldName = base.asString();
             FieldMeta fieldMeta = getTypeMeta().getFieldMeta(possibleFieldName);
             if (fieldMeta != null) {
                 //TODO check if field exists with a given name
-                base = JSONValue.NULL;
+                base = JsonValue.NULL;
                 source = new OpFilter(new FieldChangeOpRecipient(source, possibleFieldName), SET);
             }
         }
@@ -70,10 +72,10 @@ public class Model extends Syncable {
          }*/
 
     // TODO remove unnecessary value duplication
-    protected void packState(JSONValue state) {
+    protected void packState(JsonValue state) {
     }
 
-    protected void unpackState(JSONValue state) {
+    protected void unpackState(JsonValue state) {
     }
 
     /**
@@ -84,7 +86,7 @@ public class Model extends Syncable {
      * may resort to distillLog() to linearize ops.
      */
     @SwarmOperation(kind = SwarmOperationKind.Logged)
-    public void set(Spec spec, JSONValue value) throws SwarmException {
+    public void set(Spec spec, JsonValue value) throws SwarmException {
         Spec verOp = spec.getVersionOp();
         String version = verOp.getVersion().toString();
         if (this.version == null || this.version.compareTo(version) < 0) {
@@ -93,23 +95,29 @@ public class Model extends Syncable {
             value = this.oplog.get(verOp);
         }
 
-        if (value != null) {
-            this.apply(value);
+        if (value != null && value.isObject()) {
+            this.apply((JsonObject) value);
         }
     }
 
     // TODO should be generated
-    public void set(JSONValue newFieldValues) throws SwarmException {
+    public void set(JsonValue newFieldValues) throws SwarmException {
         this.deliver(this.newEventSpec(SET), newFieldValues, OpRecipient.NOOP);
     }
 
+    public void set(String fieldName, JsonValue value) throws SwarmException {
+        JsonObject fieldValues = new JsonObject();
+        fieldValues.set(fieldName, value);
+        this.set(fieldValues);
+    }
+
     public void fill(String key) throws SwarmException { // TODO goes to Model to support references
-        Spec spec = new Spec(this.getFieldValue(key).getValueAsStr()).getTypeId();
+        Spec spec = new Spec(this.getFieldValue(key).asString()).getTypeId();
         if (spec.getPattern() != SpecPattern.TYPE_ID) {
             throw new SwarmException("incomplete spec");
         }
-
-        this.setFieldValue(key, new JSONValue(new SyncableRef(this.host.get(spec))));
+        throw new UnsupportedOperationException("not supported yet");
+        //this.setFieldValue(key, new SyncableRefJson(new SyncableRef(this.host.get(spec))));
     }
 
     /**
@@ -117,33 +125,37 @@ public class Model extends Syncable {
      * TODO write test for Model.save()
      */
     public void save() throws SwarmException {
-        Map<String, JSONValue> cumul = this.distillLog();
-        Map<String, JSONValue> changes = new HashMap<String, JSONValue>();
-        JSONValue pojo = this.getPOJO(false);
-        for (String field : pojo.getFieldNames()) {
-            JSONValue currentFieldValue = this.getFieldValue(field);
+        Map<String, JsonValue> cumul = this.distillLog();
+        JsonObject changes = new JsonObject();
+        JsonObject pojo = this.getPOJO(false);
+        for (String field : pojo.names()) {
+            JsonValue currentFieldValue = this.getFieldValue(field);
             if (!currentFieldValue.equals(cumul.get(field))) {
                 // TODO nesteds
-                changes.put(field, currentFieldValue);
+                changes.set(field, currentFieldValue);
             }
         }
         for (String field : cumul.keySet()) {
-            if (pojo.getFieldValue(field).isEmpty()) {
-                changes.put(field, JSONValue.NULL); // JSON has no undefined
+            if (pojo.get(field).isNull()) {
+                changes.set(field, JsonValue.NULL); // JSON has no undefined
             }
         }
 
-        this.set(new JSONValue(changes));
+        this.set(changes);
     }
 
     @Override
-    public String validate(Spec spec, JSONValue value) {
+    public String validate(Spec spec, JsonValue value) {
         if (!SET.equals(spec.getOp())) {
             // no idea
             return "";
         }
 
-        for (String key : value.getFieldNames()) {
+        if (!(value instanceof JsonObject)) {
+            return "";
+        }
+
+        for (String key : ((JsonObject) value).names()) {
             FieldMeta fieldMeta = typeMeta.getFieldMeta(key);
             if (fieldMeta == null) {
                 return "bad field name";
@@ -171,12 +183,12 @@ public class Model extends Syncable {
         }
     }*/
 
-    public JSONValue getFieldValue(String fieldName) {
+    public JsonValue getFieldValue(String fieldName) {
         //TODO getFieldValue
-        return JSONValue.NULL;
+        return JsonValue.NULL;
     }
 
-    public void setFieldValue(String fieldName, JSONValue value) {
+    public void setFieldValue(String fieldName, JsonValue value) {
         //TODO setFieldValue
     }
 

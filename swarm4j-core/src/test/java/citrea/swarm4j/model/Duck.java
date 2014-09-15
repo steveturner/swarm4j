@@ -7,8 +7,7 @@ import citrea.swarm4j.model.annotation.SwarmType;
 import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.spec.Spec;
 import citrea.swarm4j.model.spec.SpecToken;
-import citrea.swarm4j.model.value.JSONValue;
-import org.json.JSONException;
+import com.eclipsesource.json.JsonValue;
 
 /**
  * Created with IntelliJ IDEA.
@@ -39,7 +38,7 @@ public class Duck extends Model {
         super(id, host);
     }
 
-    public Duck(JSONValue initialState, Host host2) throws SwarmException {
+    public Duck(JsonValue initialState, Host host2) throws SwarmException {
         super(initialState, host2);
     }
 
@@ -48,23 +47,23 @@ public class Duck extends Model {
         return this.age >= 18; // Russia
     }
 
-    public String validate(Spec spec, JSONValue value) {
+    public String validate(Spec spec, JsonValue value) {
         return ""; // :|
         //return spec.op()!=='set' || !('height' in val);
         //throw new Error("can't set height, may only grow");
     }
 
     @SwarmOperation(kind = SwarmOperationKind.Logged)
-    public void grow(Spec spec, JSONValue by, OpRecipient source) {
-        Integer byAsInt = by.getValueAsInteger();
-        if (byAsInt != null) {
+    public void grow(Spec spec, JsonValue by, OpRecipient source) {
+        if (by != null && by.isNumber()) {
+            int byAsInt = by.asInt();
             this.height += byAsInt;
         }
     }
 
     // should be generated
-    public void grow(int by) throws JSONException, SwarmException {
+    public void grow(int by) throws SwarmException {
         Spec growSpec = this.newEventSpec(GROW);
-        this.deliver(growSpec, new JSONValue(by), OpRecipient.NOOP);
+        this.deliver(growSpec, JsonValue.valueOf(by), OpRecipient.NOOP);
     }
 }

@@ -1,11 +1,12 @@
 package citrea.swarm4j.model.meta;
 
-import citrea.swarm4j.model.value.JSONValue;
+
 import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.Syncable;
 import citrea.swarm4j.model.annotation.SwarmOperationKind;
 import citrea.swarm4j.model.reflection.SwarmMethodInvocationException;
 import citrea.swarm4j.model.spec.Spec;
+import com.eclipsesource.json.JsonValue;
 
 /**
  * Created with IntelliJ IDEA.
@@ -17,5 +18,5 @@ import citrea.swarm4j.model.spec.Spec;
 public interface OperationMeta {
 
     SwarmOperationKind getKind();
-    void invoke(Syncable object, Spec spec, JSONValue value, OpRecipient source) throws SwarmMethodInvocationException;
+    void invoke(Syncable object, Spec spec, JsonValue value, OpRecipient source) throws SwarmMethodInvocationException;
 }

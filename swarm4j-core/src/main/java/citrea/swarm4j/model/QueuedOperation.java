@@ -2,7 +2,8 @@ package citrea.swarm4j.model;
 
 import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.value.JSONValue;
+
+import com.eclipsesource.json.JsonValue;
 
 /**
  * Created with IntelliJ IDEA.
@@ -15,9 +16,9 @@ public class QueuedOperation {
 
     private OpRecipient peer;
     private Spec spec;
-    private JSONValue value;
+    private JsonValue value;
 
-    public QueuedOperation(Spec spec, JSONValue value, OpRecipient peer) {
+    public QueuedOperation(Spec spec, JsonValue value, OpRecipient peer) {
         this.spec = spec;
         this.value = value;
         this.peer = peer;
@@ -27,7 +28,7 @@ public class QueuedOperation {
         return spec;
     }
 
-    public JSONValue getValue() {
+    public JsonValue getValue() {
         return value;
     }
 
@@ -37,6 +38,6 @@ public class QueuedOperation {
 
     @Override
     public String toString() {
-        return spec.toString() + "->" + value.toJSONString();
+        return spec.toString() + "->" + value.toString();
     }
 }

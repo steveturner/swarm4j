@@ -2,7 +2,8 @@ package citrea.swarm4j.model;
 
 import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.value.JSONValue;
+import com.eclipsesource.json.JsonValue;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,10 +17,10 @@ import java.util.List;
  */
 public class RememberingRecipient implements OpRecipient {
 
-    private List<Triplet> memory = new ArrayList<Triplet>();
+    private List<Triplet> memory = new ArrayList<>();
 
     @Override
-    public void deliver(Spec spec, JSONValue value, OpRecipient listener) throws SwarmException {
+    public void deliver(Spec spec, JsonValue value, OpRecipient listener) throws SwarmException {
         Triplet triplet = new Triplet(spec, value, listener);
         memory.add(triplet);
     }
@@ -30,10 +31,10 @@ public class RememberingRecipient implements OpRecipient {
 
     public static class Triplet {
         public final Spec spec;
-        public final JSONValue value;
+        public final JsonValue value;
         public final OpRecipient source;
 
-        public Triplet(Spec spec, JSONValue value, OpRecipient source) {
+        public Triplet(Spec spec, JsonValue value, OpRecipient source) {
             this.spec = spec;
             this.value = value;
             this.source = source;
