@@ -1,8 +1,7 @@
 package citrea.swarm4j.model;
 
 import citrea.swarm4j.model.callback.OpRecipient;
-import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.*;
 
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
@@ -30,8 +29,8 @@ public class HostTest {
 
     @Before
     public void setUp() throws Exception {
-        XInMemoryStorage storage = new XInMemoryStorage(new SpecToken("#dummy"));
-        host = new Host(new SpecToken("#gritzko"), storage);
+        XInMemoryStorage storage = new XInMemoryStorage(new IdToken("#dummy"));
+        host = new Host(new IdToken("#gritzko"), storage);
         host.registerType(Duck.class);
         host.start();
         host.waitForStart();
@@ -46,8 +45,8 @@ public class HostTest {
 
     @Test
     public void testNewVersion() throws Exception {
-        SpecToken ver1 = this.host.time();
-        SpecToken ver2 = this.host.time();
+        SToken ver1 = this.host.time();
+        SToken ver2 = this.host.time();
         assertNotEquals(ver1, ver2);
     }
 
@@ -58,7 +57,7 @@ public class HostTest {
 
         // construct an object with an id provided; it will try to fetch
         // previously saved state for the id (which is none)
-        final Duck huey = host.get(new Spec("/Duck#hueyA"));
+        final Duck huey = host.get(new TypeIdSpec("/Duck#hueyA"));
         Thread.sleep(10); // wait for initialization
 
         final int[] invoked = new int[] {0, 0};
@@ -67,14 +66,9 @@ public class HostTest {
         // listen to a field
         final OpRecipient lsfn2a = new OpRecipient() {
             @Override
-            public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+            public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
                 // check spec
-                Spec expectedSpec = new Spec(
-                        new SpecToken("/Duck"),
-                        new SpecToken("#hueyA"),
-                        spec.getVersion(),
-                        Model.SET
-                );
+                Spec expectedSpec = new FullSpec(new TypeIdSpec("/Duck#hueyA"), spec.getVersion(), Model.SET);
                 assertEquals(expectedSpec, spec);
                 // check value
                 assertTrue(value.isObject());
@@ -84,8 +78,8 @@ public class HostTest {
                 assertEquals(1, age.asInt());
 
                 // check version
-                SpecToken version = spec.getVersion();
-                assertEquals("gritzko", version.getExt());
+                SToken version = spec.getVersion();
+                assertEquals("gritzko", version.getProcessId());
 
                 huey.off(this);
                 // only the uplink remains and no listeners
@@ -97,7 +91,7 @@ public class HostTest {
 
         final OpRecipient init2a = new OpRecipient() {
             @Override
-            public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+            public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
                 JsonObject fieldValues = new JsonObject();
                 fieldValues.set("age", 1);
                 huey.set(fieldValues);
@@ -118,9 +112,9 @@ public class HostTest {
         // there is 1:1 spec-to-object correspondence;
         // an attempt of creating a second copy of a model object
         // will throw an exception
-        Duck dewey1 = new Duck(new SpecToken("#dewey"), host);
+        Duck dewey1 = new Duck(new IdToken("#dewey"), host);
         // that's we resort to descendant() doing find-or-create
-        Duck dewey2 = host.get(new Spec("/Duck#dewey"));
+        Duck dewey2 = host.get(new TypeIdSpec("/Duck#dewey"));
         // must be the same object
         assertSame(dewey1, dewey2);
         assertEquals(Duck.class.getSimpleName(), dewey1.getType().getBody());
@@ -130,7 +124,7 @@ public class HostTest {
     public void test2c_version_ids() throws Exception {
         logger.info("2.c version ids");
         String ts1 = host.time().toString();
-        Duck louie = host.get(new Spec("/Duck#louie"));
+        Duck louie = host.get(new TypeIdSpec("/Duck#louie"));
         JsonObject fieldValues = new JsonObject();
         fieldValues.set("age", 3);
         louie.set(fieldValues);
@@ -146,7 +140,7 @@ public class HostTest {
     @Test
     public void test2d_pojos() throws Exception {
         logger.info("2.d pojos");
-        Duck dewey = host.get(new Spec("/Duck"));
+        Duck dewey = host.get(new TypeToken("Duck"));
         JsonObject fieldValues = new JsonObject();
         fieldValues.set("age", 2);
         dewey.set(fieldValues);
@@ -174,7 +168,7 @@ public class HostTest {
     @Test
     public void test2f_once() throws Exception {
         logger.info("2.f once");
-        Duck huey = host.get(new Spec("/Duck#huey"));
+        Duck huey = host.get(new TypeIdSpec("/Duck#huey"));
         Thread.sleep(10);
 
         RememberingRecipient listener = new RememberingRecipient();
@@ -195,7 +189,7 @@ public class HostTest {
     @Ignore
     public void test2g_custom_field_type() throws Exception {
         logger.info("2.g custom field type");
-        Duck huey = host.get(new Spec("/Duck#huey"));
+        Duck huey = host.get(new TypeIdSpec("/Duck#huey"));
         /*TODO custom field types
         huey.set({height:'32cm'});
         ok(Math.abs(huey.height.meters-0.32)<0.0001);
@@ -320,12 +314,12 @@ public class HostTest {
         Duck duckling = new Duck(host);
         JsonObject fieldValues;
 
-        Spec spec1 = duckling.getTypeId().addToken("!time+user2").addToken(Model.SET).sort();
+        FullSpec spec1 = duckling.getTypeId().fullSpec(new VersionToken("!time+user2"), Model.SET);
         fieldValues = new JsonObject();
         fieldValues.set("height", 2);
         duckling.deliver(spec1, fieldValues, OpRecipient.NOOP);
 
-        Spec spec2 = duckling.getTypeId().addToken("!time+user1").addToken(Model.SET).sort();
+        FullSpec spec2 = duckling.getTypeId().fullSpec(new VersionToken("!time+user1"), Model.SET);
         fieldValues = new JsonObject();
         fieldValues.set("height", 1);
         duckling.deliver(spec2, fieldValues, OpRecipient.NOOP);
@@ -344,7 +338,7 @@ public class HostTest {
         final boolean[] inited = new boolean[] {false};
         scrooge.on(JsonValue.valueOf(".init"), new OpRecipient() {
             @Override
-            public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+            public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
                 inited[0] = true;
             }
         });
@@ -389,8 +383,8 @@ public class HostTest {
         // (2)
         // doesn't get triggered if the storage is sync
         oplist = counters[2].getMemory();
-        assertEquals(0, oplist.size());
-        // assertEquals(Syncable.REON, spec.getOp());
+        assertEquals(1, oplist.size());
+        assertEquals(Syncable.REON, oplist.get(0).spec.getOp());
 
         // (3)
         /* TODO fix ???

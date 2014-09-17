@@ -5,8 +5,7 @@ import citrea.swarm4j.model.annotation.SwarmOperation;
 import citrea.swarm4j.model.annotation.SwarmOperationKind;
 import citrea.swarm4j.model.annotation.SwarmType;
 import citrea.swarm4j.model.callback.OpRecipient;
-import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.*;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
 
@@ -20,7 +19,7 @@ import com.eclipsesource.json.JsonValue;
 @SwarmType("Duck")
 public class Duck extends Model {
 
-    private static final SpecToken GROW = new SpecToken(".grow");
+    private static final OpToken GROW = new OpToken(".grow");
 
     @SwarmField()
     public Integer age;
@@ -32,10 +31,10 @@ public class Duck extends Model {
     public String mood = "neutral";
 
     public Duck(Host host2) throws SwarmException {
-        super((SpecToken) null, host2);
+        super((IdToken) null, host2);
     }
 
-    public Duck(SpecToken id, Host host) throws SwarmException {
+    public Duck(IdToken id, Host host) throws SwarmException {
         super(id, host);
     }
 
@@ -55,7 +54,7 @@ public class Duck extends Model {
     }
 
     @SwarmOperation(kind = SwarmOperationKind.Logged)
-    public void grow(Spec spec, JsonValue by, OpRecipient source) {
+    public void grow(FullSpec spec, JsonValue by, OpRecipient source) {
         if (by != null && by.isNumber()) {
             int byAsInt = by.asInt();
             this.height += byAsInt;
@@ -64,7 +63,6 @@ public class Duck extends Model {
 
     // should be generated
     public void grow(int by) throws SwarmException {
-        Spec growSpec = this.newEventSpec(GROW);
-        this.deliver(growSpec, JsonValue.valueOf(by), OpRecipient.NOOP);
+        trigger(GROW, JsonValue.valueOf(by));
     }
 }

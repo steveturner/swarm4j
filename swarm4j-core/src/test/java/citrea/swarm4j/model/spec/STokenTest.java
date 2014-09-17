@@ -13,109 +13,109 @@ import java.util.Calendar;
  *         Date: 02/11/13
  *         Time: 23:44
  */
-public class SpecTokenTest {
+public class STokenTest {
 
     @Test
     public void testDate2ts() throws Exception {
         Calendar calendar = Calendar.getInstance();
-        calendar.setTimeInMillis(SpecToken.EPOCH);
-        assertEquals("00000", SpecToken.date2ts(calendar.getTime()));
+        calendar.setTimeInMillis(SToken.EPOCH);
+        assertEquals("00000", SToken.date2ts(calendar.getTime()));
 
         calendar.add(Calendar.SECOND, 1);
-        assertEquals("00001", SpecToken.date2ts(calendar.getTime()));
+        assertEquals("00001", SToken.date2ts(calendar.getTime()));
 
         calendar.add(Calendar.SECOND, 63);
-        assertEquals("00010", SpecToken.date2ts(calendar.getTime()));
+        assertEquals("00010", SToken.date2ts(calendar.getTime()));
     }
 
     @Test
     public void testInt2base() throws Exception {
-        assertEquals("0000000010", SpecToken.int2base(64, 10));
-        assertEquals("00010", SpecToken.int2base(64, 5));
-        assertEquals("00011", SpecToken.int2base(65, 5));
+        assertEquals("0000000010", SToken.int2base(64, 10));
+        assertEquals("00010", SToken.int2base(64, 5));
+        assertEquals("00011", SToken.int2base(65, 5));
     }
 
     @Test
     public void testGetBody() throws Exception {
-        SpecToken tok = new SpecToken("/Type");
+        SToken tok = new SToken("/Type");
         assertEquals("Type", tok.getBody());
 
         //token with ext part
-        tok = new SpecToken("#bare+ext");
+        tok = new SToken("#bare+ext");
         assertEquals("bare+ext", tok.getBody());
     }
 
     @Test
     public void testGetBare() throws Exception {
         //token w/o ext part
-        SpecToken tok = new SpecToken("#simple");
+        SToken tok = new SToken("#simple");
         assertEquals("simple", tok.getBare());
 
         //token with ext part
-        tok = new SpecToken("#bare+ext");
+        tok = new SToken("#bare+ext");
         assertEquals("bare", tok.getBare());
     }
 
     @Test
     public void testGetExt() throws Exception {
         //token w/o ext part
-        SpecToken tok = new SpecToken("simple");
-        assertEquals("special <no_author> value when token w/o ext", SpecToken.NO_AUTHOR, tok.getExt());
+        IdToken tok = new IdToken("simple");
+        assertEquals("special <no_author> value when token w/o ext", SToken.NO_AUTHOR, tok.getProcessId());
 
         //token with ext part
-        tok = new SpecToken("bare+ext");
-        assertEquals("ext", tok.getExt());
+        tok = new IdToken("bare+ext");
+        assertEquals("ext", tok.getProcessId());
     }
 
     @Test
     public void testJoiningConstructor() throws Exception {
-        SpecToken tok = new SpecToken(SpecQuant.VERSION, "bare1", "ext");
+        SToken tok = new SToken(SQuant.VERSION, "bare1", "ext");
         assertEquals("produce correct token", "!bare1+ext", tok.toString());
         assertEquals("bare1+ext", tok.getBody());
         assertEquals("bare1", tok.getBare());
-        assertEquals("ext", tok.getExt());
+        assertEquals("ext", tok.getProcessId());
     }
 
     @Test
     public void testOverrideBare() throws Exception {
-        SpecToken tok = new SpecToken("!bare1+ext");
-        SpecToken tok2 = tok.overrideBare("bare2");
+        SToken tok = new SToken("!bare1+ext");
+        SToken tok2 = tok.overrideBare("bare2");
         assertNotSame("generates new SpecToken instance", tok, tok2);
         assertEquals("do not modify the object", "!bare1+ext", tok.toString());
         assertEquals("do not modify object body", "bare1+ext", tok.getBody());
         assertEquals("do not modify object bare", "bare1", tok.getBare());
-        assertEquals("do not modify object ext", "ext", tok.getExt());
+        assertEquals("do not modify object ext", "ext", tok.getProcessId());
         assertEquals("produce correct token", "!bare2+ext", tok2.toString());
     }
 
     @Test
     public void testOverrideExt() throws Exception {
-        SpecToken tok = new SpecToken("!bare1+ext1");
-        SpecToken tok2 = tok.overrideExt("ext2");
+        SToken tok = new SToken("!bare1+ext1");
+        SToken tok2 = tok.overrideExt("ext2");
         assertNotSame("generates new SpecToken instance", tok, tok2);
         assertEquals("do not modify the object", "!bare1+ext1", tok.toString());
         assertEquals("do not modify object bare", "bare1", tok.getBare());
-        assertEquals("do not modify object ext", "ext1", tok.getExt());
+        assertEquals("do not modify object ext", "ext1", tok.getProcessId());
         assertEquals("produce correct token", "!bare1+ext2", tok2.toString());
     }
 
     @Test
     public void testOverrideQuant() throws Exception {
-        SpecToken tok = new SpecToken("/bare+ext");
-        assertEquals("/bare+ext", tok.overrideQuant(SpecQuant.TYPE).toString());
-        assertEquals("#bare+ext", tok.overrideQuant(SpecQuant.ID).toString());
-        assertEquals("!bare+ext", tok.overrideQuant(SpecQuant.VERSION).toString());
-        assertEquals(".bare+ext", tok.overrideQuant(SpecQuant.OP).toString());
+        SToken tok = new SToken("/bare+ext");
+        assertEquals("/bare+ext", tok.overrideQuant(SQuant.TYPE).toString());
+        assertEquals("#bare+ext", tok.overrideQuant(SQuant.ID).toString());
+        assertEquals("!bare+ext", tok.overrideQuant(SQuant.VERSION).toString());
+        assertEquals(".bare+ext", tok.overrideQuant(SQuant.OP).toString());
     }
 
     @Test
     public void testEquals() throws Exception {
-        SpecToken tok = new SpecToken("bare+ext");
+        SToken tok = new SToken("bare+ext");
 
-        SpecToken tokEq = new SpecToken("bare+ext");
+        SToken tokEq = new SToken("bare+ext");
         assertEquals(tokEq, tok);
 
-        SpecToken tokNotEq = new SpecToken("bare2+ext");
+        SToken tokNotEq = new SToken("bare2+ext");
         assertFalse(tok.equals(tokNotEq));
 
         //noinspection EqualsBetweenInconvertibleTypes

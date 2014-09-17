@@ -1,7 +1,7 @@
 package citrea.swarm4j.model;
 
 import citrea.swarm4j.model.callback.OpRecipient;
-import citrea.swarm4j.model.spec.Spec;
+import citrea.swarm4j.model.spec.FullSpec;
 
 import com.eclipsesource.json.JsonValue;
 
@@ -15,16 +15,16 @@ import com.eclipsesource.json.JsonValue;
 public class QueuedOperation {
 
     private final OpRecipient peer;
-    private final Spec spec;
+    private final FullSpec spec;
     private final JsonValue value;
 
-    public QueuedOperation(Spec spec, JsonValue value, OpRecipient peer) {
+    public QueuedOperation(FullSpec spec, JsonValue value, OpRecipient peer) {
         this.spec = spec;
         this.value = value;
         this.peer = peer;
     }
 
-    public Spec getSpec() {
+    public FullSpec getSpec() {
         return spec;
     }
 

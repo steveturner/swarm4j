@@ -4,8 +4,7 @@ import citrea.swarm4j.model.Host;
 import citrea.swarm4j.model.SwarmException;
 import citrea.swarm4j.model.Syncable;
 import citrea.swarm4j.model.callback.OpRecipient;
-import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.*;
 
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
@@ -40,13 +39,13 @@ public class InMemoryStorage extends Storage {
     private static final Logger logger = LoggerFactory.getLogger(InMemoryStorage.class);
 
     // TODO async storage
-    private final Map<Spec, Map<Spec, JsonValue>> tails = new HashMap<Spec, Map<Spec, JsonValue>>();
-    private final Map<Spec, JsonObject> states = new HashMap<Spec, JsonObject>();
+    private final Map<TypeIdSpec, Map<VersionOpSpec, JsonValue>> tails = new HashMap<TypeIdSpec, Map<VersionOpSpec, JsonValue>>();
+    private final Map<TypeIdSpec, JsonObject> states = new HashMap<TypeIdSpec, JsonObject>();
 
     // TODO ??? storage listeners
     protected Map<Spec, List<OpRecipient>> listeners;
 
-    public InMemoryStorage(SpecToken id) {
+    public InMemoryStorage(IdToken id) {
         super(id);
         // many implementations do not push changes
         // so there are no listeners
@@ -54,34 +53,34 @@ public class InMemoryStorage extends Storage {
     }
 
     @Override
-    public void op(Spec spec, JsonValue val, OpRecipient source) throws SwarmException {
+    public void op(FullSpec spec, JsonValue val, OpRecipient source) throws SwarmException {
         if (!this.writeOp(spec, val, source)) {
             // The storage piggybacks on the object's state/log handling logic
             // First, it adds an op to the log tail unless the log is too long...
             // ...otherwise it sends back a subscription effectively requesting
             // the state, on state arrival zeroes the tail.
-            source.deliver(spec.overrideToken(Syncable.REON), JsonValue.valueOf(Syncable.INIT.toString()), this);
+            source.deliver(spec.overrideOp(Syncable.REON), JsonValue.valueOf(Syncable.INIT.toString()), this);
         }
     }
 
     @Override
-    protected void appendToLog(Spec ti, JsonObject ver_op2val) throws SwarmException {
+    protected void appendToLog(TypeIdSpec ti, JsonObject ver_op2val) throws SwarmException {
         throw new UnsupportedOperationException("Not supported for InMemoryStorage");
     }
 
     @Override
-    public void patch(Spec spec, JsonValue patch) throws SwarmException {
+    public void patch(FullSpec spec, JsonValue patch) throws SwarmException {
         this.writeState(spec, patch);
     }
 
     @Override
-    public Spec getTypeId() {
-        return new Spec(Host.HOST, this.getPeerId());
+    public TypeIdSpec getTypeId() {
+        return new TypeIdSpec(Host.HOST, this.getPeerId());
     }
 
     @Override
-    public void on(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
-        Spec ti = spec.getTypeId();
+    public void on(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
+        TypeIdSpec ti = spec.getTypeId();
 
         if (this.listeners != null) {
             List<OpRecipient> ls = this.listeners.get(ti);
@@ -97,10 +96,10 @@ public class InMemoryStorage extends Storage {
         JsonObject state = this.readState(ti);
         if (state == null) {
             state = new JsonObject();
-            state.set(Syncable.VERSION_FIELD, JsonValue.valueOf(SpecToken.ZERO_VERSION.toString()));
+            state.set(Syncable.VERSION_FIELD, JsonValue.valueOf(SToken.ZERO_VERSION.toString()));
         }
 
-        Map<Spec, JsonValue> tail = this.readOps(ti);
+        Map<VersionOpSpec, JsonValue> tail = this.readOps(ti);
 
         if (tail != null) {
             final JsonObject stateTail;
@@ -110,22 +109,22 @@ public class InMemoryStorage extends Storage {
             } else {
                 stateTail = new JsonObject(val.asObject());
             }
-            for (Map.Entry<Spec, JsonValue> op : tail.entrySet()) {
+            for (Map.Entry<VersionOpSpec, JsonValue> op : tail.entrySet()) {
                 stateTail.set(op.getKey().toString(), op.getValue());
             }
             state.set(Syncable.TAIL_FIELD, stateTail);
         }
-        Spec tiv = ti.addToken(spec.getVersion());
-        source.deliver(tiv.addToken(Syncable.PATCH), state, this);
-        source.deliver(tiv.addToken(Syncable.REON), JsonValue.valueOf(Storage.stateVersionVector(state)), this);
+        VersionToken version = spec.getVersion();
+        source.deliver(ti.fullSpec(version, Syncable.PATCH), state, this);
+        source.deliver(ti.fullSpec(version, Syncable.REON), JsonValue.valueOf(Storage.stateVersionVector(state)), this);
     }
 
     @Override
-    public void off(Spec spec, OpRecipient source) throws SwarmException {
+    public void off(FullSpec spec, OpRecipient source) throws SwarmException {
         if (this.listeners == null) {
             return;
         }
-        Spec ti = spec.getTypeId();
+        TypeIdSpec ti = spec.getTypeId();
         List<OpRecipient> ls = this.listeners.get(ti);
         if (ls == null) {
             return;
@@ -139,21 +138,21 @@ public class InMemoryStorage extends Storage {
         }
     }
 
-    void writeState(Spec spec, JsonValue state) {
-        Spec ti = spec.getTypeId();
+    void writeState(FullSpec spec, JsonValue state) {
+        TypeIdSpec ti = spec.getTypeId();
         if (state != null && state.isObject()) {
             this.states.put(ti, (JsonObject) state);
         }
         // tail is zeroed on state flush
-        this.tails.put(ti, new HashMap<Spec, JsonValue>());
+        this.tails.put(ti, new HashMap<VersionOpSpec, JsonValue>());
     }
 
-    boolean writeOp(Spec spec, JsonValue value, OpRecipient source) {
-        Spec ti = spec.getTypeId();
-        Spec vo = spec.getVersionOp();
-        Map<Spec, JsonValue> tail = this.tails.get(ti);
+    boolean writeOp(FullSpec spec, JsonValue value, OpRecipient source) {
+        TypeIdSpec ti = spec.getTypeId();
+        VersionOpSpec vo = spec.getVersionOp();
+        Map<VersionOpSpec, JsonValue> tail = this.tails.get(ti);
         if (tail == null) {
-            tail = new HashMap<Spec, JsonValue>();
+            tail = new HashMap<VersionOpSpec, JsonValue>();
             this.tails.put(ti, tail);
         }
         if (tail.containsKey(vo)) {
@@ -164,7 +163,7 @@ public class InMemoryStorage extends Storage {
         return (count < 3);
     }
 
-    protected JsonObject readState(Spec ti) {
+    protected JsonObject readState(TypeIdSpec ti) {
         JsonObject res = this.states.get(ti);
         if (res != null) { // clone to prevent changing
             res = JsonObject.readFrom(res.toString());
@@ -172,7 +171,7 @@ public class InMemoryStorage extends Storage {
         return res;
     }
 
-    protected Map<Spec, JsonValue> readOps(Spec ti) {
+    protected Map<VersionOpSpec, JsonValue> readOps(TypeIdSpec ti) {
         return this.tails.get(ti);
     }
 

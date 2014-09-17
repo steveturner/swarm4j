@@ -5,8 +5,7 @@ import citrea.swarm4j.model.callback.Uplink;
 import citrea.swarm4j.model.pipe.LoopbackConnection;
 import citrea.swarm4j.model.pipe.LoopbackOpChannelFactory;
 import citrea.swarm4j.model.pipe.Pipe;
-import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.*;
 
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
@@ -31,8 +30,8 @@ import static org.junit.Assert.*;
 public class OnOffTest {
 
     private static final Logger logger = LoggerFactory.getLogger(OnOffTest.class);
-    private static final SpecToken SERVER = new SpecToken("#swarm~up");
-    private static final SpecToken CLIENT = new SpecToken("#client");
+    private static final IdToken SERVER = new IdToken("#swarm~up");
+    private static final IdToken CLIENT = new IdToken("#client");
     private static final int RECONNECT_TIMEOUT = 10;
 
     //TODO cache-storage private Thread cacheStorageThread;
@@ -48,7 +47,7 @@ public class OnOffTest {
     public void setUp() throws Exception {
 
         XInMemoryStorage dummyStorage;
-        dummyStorage = new XInMemoryStorage(new SpecToken("#dummy"));
+        dummyStorage = new XInMemoryStorage(new IdToken("#dummy"));
         dummyStorage.setAsync(true);
 
         server = new Host(SERVER, dummyStorage);
@@ -88,11 +87,11 @@ public class OnOffTest {
     public void test3a_serialized_on_reon() throws SwarmException, InterruptedException {
         logger.info("3.a serialized on, reon");
         // that's the default server.getSources = function () {return [storage]};
-        final Spec THERM_ID = new Spec("/Thermometer#room");
+        final TypeIdSpec THERM_ID = new TypeIdSpec("/Thermometer#room");
 
-        client.on(JsonValue.valueOf(THERM_ID.addToken(Syncable.INIT).toString()), new OpRecipient() {
+        client.on(JsonValue.valueOf(THERM_ID.toString() + Syncable.INIT.toString()), new OpRecipient() {
             @Override
-            public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+            public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
                 Thermometer obj = (Thermometer) client.objects.get(THERM_ID);
                 JsonObject fieldValues = new JsonObject();
                 fieldValues.set("t", 22);
@@ -121,9 +120,9 @@ public class OnOffTest {
         // check that the state is OK, there are no zombie listeners
         // no objects/hosts, log is 1 record long (distilled) etc
 
-        client.on(JsonValue.valueOf(thermometer.getTypeId().addToken(Model.SET).toString()), new OpRecipient() {
+        client.on(JsonValue.valueOf(thermometer.getTypeId().toString() + Model.SET.toString()), new OpRecipient() {
             @Override
-            public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+            public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
                 logger.debug("{} <= ({}, {}, {})", this, spec, value, source);
                 if (Model.SET.equals(spec.getOp())) {
                     for (Uplink connection : client.getSources(client.getTypeId())) {
@@ -164,7 +163,7 @@ public class OnOffTest {
 
         client.on(JsonValue.valueOf(Syncable.REOFF.toString()), new OpRecipient() {
             @Override
-            public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+            public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
                 assertSame(source, client);
                 assertTrue(source instanceof Host);
                 assertFalse(!((Host) source).isNotUplinked());
@@ -179,7 +178,7 @@ public class OnOffTest {
 
         client.on(JsonValue.valueOf(Syncable.REON.toString()), new OpRecipient() {
             @Override
-            public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+            public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
                 assertEquals(spec.getId(), client.getId());
             }
 

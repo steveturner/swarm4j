@@ -17,7 +17,7 @@ public class VersionVectorTest {
 
     @Test
     public void testAdd() throws Exception {
-        Spec spec = new Spec("/Type!ver1+s1!ver2+s2!ver3+s1");
+        VersionVectorSpec spec = new VersionVectorSpec("!ver1+s1!ver2+s2!ver3+s1");
         VersionVector map = new VersionVector(spec);
         assertEquals("!ver3+s1!ver2+s2", map.toString());
     }
@@ -26,13 +26,13 @@ public class VersionVectorTest {
     public void testCovers() throws Exception {
         // the convention is: use "!version" for vectors and
         // simply "version" for scalars
-        VersionVector map = new VersionVector("!7AM0f+gritzko!0longago+krdkv!7AMTc+aleksisha!0ld!00ld#some+garbage");
+        VersionVector map = new VersionVector("!7AM0f+gritzko!0longago+krdkv!7AMTc+aleksisha!0ld!00ld");
 
-        assertTrue(map.covers(new SpecToken("!7AM0f+gritzko")));
-        assertFalse(map.covers(new SpecToken("!7AMTd+aleksisha")));
-        assertFalse(map.covers(new SpecToken("!6AMTd+maxmaxmax")));
-        assertTrue(map.covers(new SpecToken("!0ld")));
-        assertFalse(map.covers(new SpecToken("!0le")));
+        assertTrue(map.covers(new VersionToken("!7AM0f+gritzko")));
+        assertFalse(map.covers(new VersionToken("!7AMTd+aleksisha")));
+        assertFalse(map.covers(new VersionToken("!6AMTd+maxmaxmax")));
+        assertTrue(map.covers(new VersionToken("!0ld")));
+        assertFalse(map.covers(new VersionToken("!0le")));
 
     }
 
@@ -40,7 +40,7 @@ public class VersionVectorTest {
     public void testGet() throws Exception {
         VersionVector map = new VersionVector("!7AM0f+gritzko!0longago+krdkv!7AMTc+aleksisha!0ld!00ld#some+garbage");
 
-        assertEquals("0ld", map.get(SpecToken.NO_AUTHOR));
+        assertEquals("0ld", map.get(SToken.NO_AUTHOR));
         assertEquals("", map.get("garbage"));
     }
 

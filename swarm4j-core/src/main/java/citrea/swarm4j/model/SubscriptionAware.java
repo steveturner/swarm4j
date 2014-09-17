@@ -1,8 +1,8 @@
 package citrea.swarm4j.model;
 
 import citrea.swarm4j.model.callback.OpRecipient;
-import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.FullSpec;
+import citrea.swarm4j.model.spec.OpToken;
 import com.eclipsesource.json.JsonValue;
 
 
@@ -14,18 +14,18 @@ import com.eclipsesource.json.JsonValue;
  *         Time: 22:51
  */
 public interface SubscriptionAware {
-    public static final SpecToken ON = new SpecToken(".on");
-    public static final SpecToken REON = new SpecToken(".reon");
-    public static final SpecToken OFF = new SpecToken(".off");
-    public static final SpecToken REOFF = new SpecToken(".reoff");
+    public static final OpToken ON = new OpToken(".on");
+    public static final OpToken REON = new OpToken(".reon");
+    public static final OpToken OFF = new OpToken(".off");
+    public static final OpToken REOFF = new OpToken(".reoff");
 
-    void on(Spec spec, JsonValue filterValue, OpRecipient source) throws SwarmException;
+    void on(FullSpec spec, JsonValue filterValue, OpRecipient source) throws SwarmException;
 
-    void reon(Spec spec, JsonValue base, OpRecipient source) throws SwarmException;
+    void reon(FullSpec spec, JsonValue base, OpRecipient source) throws SwarmException;
 
-    void off(Spec spec, OpRecipient repl) throws SwarmException;
+    void off(FullSpec spec, OpRecipient repl) throws SwarmException;
 
-    void reoff(Spec spec, OpRecipient repl) throws SwarmException;
+    void reoff(FullSpec spec, OpRecipient repl) throws SwarmException;
 
     // should be generated?
     void on(JsonValue evfilter, OpRecipient source) throws SwarmException;

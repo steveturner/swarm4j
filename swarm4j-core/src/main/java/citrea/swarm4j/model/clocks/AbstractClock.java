@@ -1,7 +1,6 @@
 package citrea.swarm4j.model.clocks;
 
-import citrea.swarm4j.model.spec.SpecQuant;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.VersionToken;
 
 import java.util.Date;
 
@@ -23,7 +22,7 @@ public abstract class AbstractClock implements Clock {
     final int timePartLen;
     final String id;
 
-    SpecToken lastIssuedTimestamp;
+    VersionToken lastIssuedTimestamp;
     int lastSeqSeen;
     int lastTimeSeen;
 
@@ -34,29 +33,29 @@ public abstract class AbstractClock implements Clock {
     }
 
     @Override
-    public SpecToken getLastIssuedTimestamp() {
+    public VersionToken getLastIssuedTimestamp() {
         return lastIssuedTimestamp;
     }
 
     @Override
-    public SpecToken issueTimestamp() {
+    public VersionToken issueTimestamp() {
         String baseTime = issueTimePart();
         String seqAsStr = generateNextSequencePart();
-        this.lastIssuedTimestamp = new SpecToken(SpecQuant.VERSION, baseTime + seqAsStr, this.id);
+        this.lastIssuedTimestamp = new VersionToken(baseTime + seqAsStr, this.id);
         return this.lastIssuedTimestamp;
     }
 
     @Override
-    public TimestampParsed parseTimestamp(SpecToken ts) {
+    public TimestampParsed parseTimestamp(VersionToken ts) {
         final String time_seq = ts.getBare();
         final int time, seq;
         if (timePartLen == 0) {
             time = 0;
-            seq = SpecToken.base2int(time_seq);
+            seq = VersionToken.base2int(time_seq);
         } else {
             String timePart = time_seq.substring(0, timePartLen);
             String seqPart = time_seq.substring(timePartLen);
-            time = SpecToken.base2int(timePart);
+            time = VersionToken.base2int(timePart);
             seq = parseSequencePart(seqPart);
         }
         return new TimestampParsed(time, seq);
@@ -73,7 +72,7 @@ public abstract class AbstractClock implements Clock {
      * any timestamps previously seen.
      */
     @Override
-    public void seeTimestamp(SpecToken ts) {
+    public void seeTimestamp(VersionToken ts) {
         if (ts.compareTo(this.lastIssuedTimestamp) < 0) {
             return;
         }

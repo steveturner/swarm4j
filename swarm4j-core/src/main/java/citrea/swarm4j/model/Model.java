@@ -24,14 +24,14 @@ import java.util.*;
  */
 public class Model extends Syncable {
 
-    public static final SpecToken SET = new SpecToken(".set");
+    public static final OpToken SET = new OpToken(".set");
 
     /**
      * Model (LWW key-value object)
      * @param id object id
      * @param host swarm host object bound to
      */
-    protected Model(SpecToken id, Host host) throws SwarmException {
+    protected Model(IdToken id, Host host) throws SwarmException {
         super(id, host);
         this.logDistillator = new ModelLogDistillator();
     }
@@ -50,7 +50,7 @@ public class Model extends Syncable {
 
     @SwarmOperation(kind = SwarmOperationKind.Neutral)
     @Override
-    public void on(Spec spec, JsonValue base, OpRecipient source) throws SwarmException {
+    public void on(FullSpec spec, JsonValue base, OpRecipient source) throws SwarmException {
         //  support the model.on('field',callback_fn) pattern
         if (!JSONUtils.isFalsy(base)) {
             String possibleFieldName = base.asString();
@@ -87,8 +87,8 @@ public class Model extends Syncable {
      * may resort to distillLog() to linearize ops.
      */
     @SwarmOperation(kind = SwarmOperationKind.Logged)
-    public void set(Spec spec, JsonValue value) throws SwarmException {
-        Spec verOp = spec.getVersionOp();
+    public void set(FullSpec spec, JsonValue value) throws SwarmException {
+        VersionOpSpec verOp = spec.getVersionOp();
         String version = verOp.getVersion().toString();
         if (this.version == null || this.version.compareTo(version) < 0) {
             this.oplog.put(verOp, value);
@@ -113,8 +113,13 @@ public class Model extends Syncable {
     }
 
     public void fill(String key) throws SwarmException { // TODO goes to Model to support references
-        Spec spec = new Spec(this.getFieldValue(key).asString()).getTypeId();
-        if (spec.getPattern() != SpecPattern.TYPE_ID) {
+        JsonValue val = this.getFieldValue(key);
+        if (JSONUtils.isFalsy(val)) {
+            return;
+        }
+        try {
+            TypeIdSpec link = new TypeIdSpec(val.asString());
+        } catch (IllegalArgumentException e) {
             throw new SwarmException("incomplete spec");
         }
         throw new UnsupportedOperationException("not supported yet");
@@ -146,7 +151,7 @@ public class Model extends Syncable {
     }
 
     @Override
-    public String validate(Spec spec, JsonValue value) {
+    public String validate(FullSpec spec, JsonValue value) {
         if (!SET.equals(spec.getOp())) {
             // no idea
             return "";

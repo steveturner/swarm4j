@@ -2,7 +2,7 @@ package citrea.swarm4j.model.reflection;
 
 
 import citrea.swarm4j.model.callback.OpRecipient;
-import citrea.swarm4j.model.spec.Spec;
+import citrea.swarm4j.model.spec.FullSpec;
 import com.eclipsesource.json.JsonValue;
 
 import java.lang.reflect.Method;
@@ -18,12 +18,12 @@ import java.util.Arrays;
 public enum SwarmMethodSignature {
 
     NONE(),
-    SPEC(Spec.class),
-    SPEC_VALUE(Spec.class, JsonValue.class),
-    SPEC_VALUE_SOURCE(Spec.class, JsonValue.class, OpRecipient.class),
+    SPEC(FullSpec.class),
+    SPEC_VALUE(FullSpec.class, JsonValue.class),
+    SPEC_VALUE_SOURCE(FullSpec.class, JsonValue.class, OpRecipient.class),
+    SPEC_SOURCE(FullSpec.class, OpRecipient.class),
     VALUE(JsonValue.class),
     VALUE_SOURCE(JsonValue.class, OpRecipient.class),
-    SPEC_SOURCE(Spec.class, OpRecipient.class),
     SOURCE(OpRecipient.class);
 
     private final Class<?>[] paramTypes;

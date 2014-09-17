@@ -9,28 +9,26 @@ import java.util.Iterator;
  *         Date: 21.06.2014
  *         Time: 20:54
  */
-public class TokenIterator implements Iterator<SpecToken> {
+public class VersionTokenIterator implements Iterator<VersionToken> {
 
-    private final SpecToken[] tokens;
-    private final SpecQuant quant;
+    private final SToken[] tokens;
     private int index = 0;
 
-    public TokenIterator(SpecToken[] tokens, SpecQuant quant) {
+    public VersionTokenIterator(SToken[] tokens) {
         this.tokens = tokens;
-        this.quant = quant;
     }
 
     @Override
     public boolean hasNext() {
-        while (index < tokens.length && this.quant != tokens[index].getQuant()) {
+        while (index < tokens.length && SQuant.VERSION != tokens[index].getQuant()) {
             index++;
         }
         return (index < tokens.length);
     }
 
     @Override
-    public SpecToken next() {
-        return index < tokens.length ? tokens[index++] : null;
+    public VersionToken next() {
+        return index < tokens.length ? (VersionToken) tokens[index++] : null;
     }
 
     @Override

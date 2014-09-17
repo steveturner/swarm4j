@@ -1,6 +1,6 @@
 package citrea.swarm4j.model;
 
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.IdToken;
 
 /**
  * Created with IntelliJ IDEA.
@@ -11,7 +11,7 @@ import citrea.swarm4j.model.spec.SpecToken;
  */
 class Nest extends Set<Duck> {
 
-    public Nest(SpecToken id, Host host) throws SwarmException {
+    public Nest(IdToken id, Host host) throws SwarmException {
         super(id, host);
     }
 

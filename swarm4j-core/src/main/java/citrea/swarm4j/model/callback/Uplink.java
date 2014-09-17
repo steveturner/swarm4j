@@ -1,6 +1,6 @@
 package citrea.swarm4j.model.callback;
 
-import citrea.swarm4j.model.spec.Spec;
+import citrea.swarm4j.model.spec.TypeIdSpec;
 
 /**
  * Created with IntelliJ IDEA.
@@ -11,5 +11,5 @@ import citrea.swarm4j.model.spec.Spec;
  */
 public interface Uplink extends OpRecipient {
 
-    Spec getTypeId();
+    TypeIdSpec getTypeId();
 }

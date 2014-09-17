@@ -4,166 +4,45 @@ import java.util.*;
 import java.util.regex.Matcher;
 
 /**
- * Specifier "/type#id.member!version"
+ * Base class for all types of Specifiers
  *
  * Created with IntelliJ IDEA.
  * @author aleksisha
  *         Date: 26/10/13
  *         Time: 15:02
  */
-public class Spec implements Comparable<Spec> {
+public abstract class Spec implements Comparable<Spec> {
 
     private static final int AVERAGE_SPEC_LENGTH = 48;
+    private static final EmptySpec EMPTY_SPEC = new EmptySpec();
 
-    private final SpecToken[] tokens;
-    private final String asString;
+    private String str = null;
 
-    public Spec(SpecToken... tokens) {
-        int j = 0;
-        for (int i = 0, l = tokens.length; i < l; i++) {
-            if (tokens[i] != null) {
-                if (j != i) {
-                    tokens[j] = tokens[i];
-                }
-                j++;
-            }
-        }
-        if (j < tokens.length) {
-            tokens = cloneTokens(tokens, j);
-        }
-        this.tokens = tokens;
+    protected Spec() {
+    }
+
+    public abstract List<SToken> listTokens();
+
+    public String asString() {
+        List<SToken> tokens = listTokens();
         StringBuilder sb = new StringBuilder(AVERAGE_SPEC_LENGTH);
-        for (SpecToken tok : tokens) {
+        for (SToken tok : tokens) {
+            if (tok == null) {
+                throw new IllegalArgumentException("malformed specifier (token is null)");
+            }
             sb.append(tok.toString());
         }
-        this.asString = sb.toString();
+        return sb.toString();
     }
 
-    public Spec(Spec copy) {
-        this(cloneTokens(copy.tokens, copy.tokens.length));
-    }
-
-    public Spec(String specAsString) {
-        this(Spec.parse(specAsString));
-    }
-
-    public final Spec addToken(SpecToken token) {
-        SpecToken[] newTokens = cloneTokens(tokens, tokens.length + 1);
-        newTokens[tokens.length] = token;
-        return new Spec(newTokens);
-    }
-
-    public final Spec addToken(String token) {
-        SpecToken[] tokensToAdd = new Spec(token).tokens;
-        SpecToken[] newTokens = new SpecToken[tokens.length + tokensToAdd.length];
-        System.arraycopy(tokens, 0, newTokens, 0, tokens.length);
-        System.arraycopy(tokensToAdd, 0, newTokens, tokens.length, tokensToAdd.length);
-        return new Spec(newTokens);
-    }
-
-    public Spec overrideToken(SpecToken overrideWith) {
-        final SpecQuant q = overrideWith.getQuant();
-        SpecToken[] newTokens = cloneTokens(tokens, tokens.length);
-        boolean found = false;
-        for (int i = 0, l = newTokens.length; i < l; i++) {
-            SpecToken token = newTokens[i];
-            if (token.getQuant() == q) {
-                newTokens[i] = overrideWith;
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            newTokens = cloneTokens(newTokens, newTokens.length + 1);
-            newTokens[newTokens.length - 1] = overrideWith;
-        }
-        return new Spec(newTokens);
-    }
-
-    public Spec sort() {
-        SpecToken[] newTokens = cloneTokens(tokens, tokens.length);
-        Arrays.sort(newTokens, SpecToken.ORDER_BY_QUANT);
-        return new Spec(newTokens);
-    }
-
-    public boolean isEmpty() {
-        return tokens.length == 0;
-    }
-
-    public int getTokensCount() {
-        return tokens.length;
-    }
-
-    public SpecToken getToken(int idx) {
-        return (tokens.length >= idx + 1) ? tokens[idx] : null;
-    }
-
-    public SpecToken getToken(SpecQuant quant) {
-        for (SpecToken token : tokens) {
-            if (token.getQuant() == quant) {
-                return token;
-            }
-        }
-        return null;
-    }
-
-    public Iterator<SpecToken> getTokenIterator(SpecQuant quant) {
-        return new TokenIterator(tokens, quant);
-    }
-
-    public Spec getTypeId() {
-        return new Spec(getType(), getId());
-    }
-
-    public Spec getVersionOp() {
-        return new Spec(getVersion(), getOp());
-    }
-
-    public SpecToken getType() {
-        return getToken(SpecQuant.TYPE);
-    }
-
-    public SpecToken getId() {
-        return getToken(SpecQuant.ID);
-    }
-
-    public SpecToken getVersion() {
-        return getToken(SpecQuant.VERSION);
-    }
-
-    public SpecToken getOp() {
-        return getToken(SpecQuant.OP);
-    }
-
-
-    public final SpecPattern getPattern() {
-        switch (tokens.length) {
-            case 4:
-                for (int i = 0; i < tokens.length; i++) {
-                    if (tokens[i].getQuant() != SpecQuant.byOrder(i)) {
-                        return SpecPattern.UNKNOWN;
-                    }
-                }
-                return SpecPattern.FULL;
-            case 2:
-                if (tokens[0].getQuant() == SpecQuant.TYPE &&
-                        tokens[1].getQuant() == SpecQuant.ID) {
-                    return SpecPattern.TYPE_ID;
-                } else if (tokens[0].getQuant() == SpecQuant.VERSION &&
-                        tokens[1].getQuant() == SpecQuant.OP) {
-                    return SpecPattern.VERSION_OP;
-                } else {
-                    return SpecPattern.UNKNOWN;
-                }
-            default:
-                return SpecPattern.UNKNOWN;
-        }
+    public final boolean isEmpty() {
+        return getTokensCount() == 0;
     }
 
     public final boolean fits(Spec specFilter) {
-        for (SpecToken tok : specFilter.tokens) {
+        for (SToken tok : specFilter.listTokens()) {
             boolean found = false;
-            for (SpecToken token : this.tokens) {
+            for (SToken token : this.listTokens()) {
                 if (tok.equals(token)) {
                     found = true;
                     break;
@@ -178,7 +57,10 @@ public class Spec implements Comparable<Spec> {
 
     @Override
     public final String toString() {
-        return asString;
+        if (str == null) {
+            str = asString();
+        }
+        return str;
     }
 
     @Override
@@ -187,57 +69,142 @@ public class Spec implements Comparable<Spec> {
 
         if (o == null) return false;
         if (o instanceof String) {
-            return o.equals(this.asString);
+            return o.equals(this.toString());
         }
         if (getClass() != o.getClass()) return false;
 
         Spec spec = (Spec) o;
 
-        return asString.equals(spec.asString);
+        return toString().equals(spec.toString());
     }
 
     @Override
     public final int hashCode() {
-        int len = this.tokens.length;
-        int result = 0;
-        for (SpecQuant q : SpecQuant.values()) {
-            int idx = q.ordinal();
-            result *= 31;
-            if (idx < len) {
-                result += this.tokens[idx].hashCode();
-            }
-        }
-        return result;
+        return toString().hashCode();
     }
 
     @Override
     public final int compareTo(Spec spec) {
-        return spec == null ? 1 : this.asString.compareTo(spec.asString);
+        return spec == null ? 1 : this.toString().compareTo(spec.toString());
     }
 
-    private static SpecToken[] cloneTokens(SpecToken[] tokens, int count) {
-        SpecToken[] res = new SpecToken[count];
-        System.arraycopy(tokens, 0, res, 0, Math.min(count, tokens.length));
-        return res;
-    }
-
-    public static SpecToken[] parse(String specAsString) {
+    public static SToken[] parse(String specAsString) {
         if (specAsString == null) {
-            return new SpecToken[0];
+            return new SToken[0];
         }
 
-        Matcher matcher = SpecToken.RE_Q_TOK_EXT.matcher(specAsString);
-        List<SpecToken> tokensList = new ArrayList<SpecToken>(4);
+        Matcher matcher = SToken.RE_Q_TOK_EXT.matcher(specAsString);
+        List<SToken> tokensList = new ArrayList<SToken>(4);
         while (matcher.find()) {
-            SpecToken tok = new SpecToken(
-                    SpecQuant.byCode(matcher.group(1)),
-                    matcher.group(3),
-                    matcher.group(4)
-            );
+            final SToken tok;
+            final String bare = matcher.group(3);
+            final String ext = matcher.group(4);
+            switch (SQuant.byCode(matcher.group(1))) {
+                case TYPE:
+                    tok = new TypeToken(bare, ext);
+                    break;
+                case ID:
+                    tok = new IdToken(bare, ext);
+                    break;
+                case VERSION:
+                    tok = new VersionToken(bare, ext);
+                    break;
+                case OP:
+                    tok = new OpToken(bare, ext);
+                    break;
+                default:
+                    throw new IllegalArgumentException("unknown token quant: " + matcher.group(1));
+            }
             tokensList.add(tok);
         }
 
-        return tokensList.toArray(new SpecToken[tokensList.size()]);
+        boolean hasTypeOrIdOrOperation = false;
+        for (SToken token : tokensList) {
+            switch (token.getQuant()) {
+                case TYPE:
+                case ID:
+                case OP:
+                    hasTypeOrIdOrOperation = true;
+                    break;
+            }
+        }
+        if (hasTypeOrIdOrOperation) {
+            Collections.sort(tokensList, SToken.ORDER_BY_QUANT);
+        }
+        return tokensList.toArray(new SToken[tokensList.size()]);
+    }
+
+    public static Spec parseSpec(String specAsStr) {
+        SToken[] tokens = parse(specAsStr);
+        int tokensCount = tokens.length;
+        if (tokensCount == 0) {
+            return EMPTY_SPEC;
+        } else {
+            if (tokens[0] instanceof TypeToken) {
+                TypeToken type = (TypeToken) tokens[0];
+                if (tokensCount > 1) {
+                    if (tokens[1] instanceof IdToken) {
+                        IdToken id = (IdToken) tokens[1];
+                        if (tokensCount == 2) {
+                            return new TypeIdSpec(type, id);
+                        } else if (tokens[2] instanceof VersionToken) {
+                            VersionToken version = (VersionToken) tokens[2];
+                            if (tokensCount > 3) {
+                                if (tokens[3] instanceof OpToken) {
+                                    OpToken op = (OpToken) tokens[3];
+                                    if (tokensCount == 4) {
+                                        return new FullSpec(type, id, version, op);
+                                    } else {
+                                        throw new IllegalArgumentException("malformed specifier (/Type#id!version.op ???): " + specAsStr);
+                                    }
+                                } else {
+                                    throw new IllegalArgumentException("malformed specifier (/Type#id!version NOOP): " + specAsStr);
+                                }
+                            } else {
+                                throw new IllegalArgumentException("malformed specifier (/Type#id!version NOOP): " + specAsStr);
+                            }
+                        } else {
+                            throw new IllegalArgumentException("malformed specifier (/Type#id NOVER): " + specAsStr);
+                        }
+                    } else {
+                        throw new IllegalArgumentException("malformed specifier (/Type NOID): " + specAsStr);
+                    }
+                } else {
+                    throw new IllegalArgumentException("malformed specifier (/Type ???): " + specAsStr);
+                }
+            } else if (tokens[0] instanceof VersionToken) {
+                VersionToken version = (VersionToken) tokens[0];
+                if (tokensCount > 1) {
+                    if (tokens[1] instanceof OpToken) {
+                        OpToken op = (OpToken) tokens[1];
+                        if (tokensCount == 2) {
+                            return new VersionOpSpec(version, op);
+                        } else {
+                            throw new IllegalArgumentException("malformed specifier (!version.op ???): " + specAsStr);
+                        }
+                    } else if (tokens[1] instanceof VersionToken) {
+                        boolean ok = true;
+                        for (int i = 2; i < tokensCount; i++) {
+                            if (!(tokens[i] instanceof VersionToken)) {
+                                ok = false;
+                                break;
+                            }
+                        }
+                        if (ok) {
+                            return new VersionVectorSpec((VersionToken[]) tokens);
+                        } else {
+                            throw new IllegalArgumentException("malformed specifier (!ver1!ver2... ???): " + specAsStr);
+                        }
+                    } else {
+                        throw new IllegalArgumentException("malformed specifier (!version ???): " + specAsStr);
+                    }
+                } else {
+                    throw new IllegalArgumentException("malformed specifier (!version NOOP): " + specAsStr);
+                }
+            } else {
+                throw new IllegalArgumentException("malformed specifier (should start from /Type or !version): " + specAsStr);
+            }
+        }
     }
 
     public static final Comparator<Spec> ORDER_NATURAL = new Comparator<Spec>() {
@@ -256,4 +223,25 @@ public class Spec implements Comparable<Spec> {
     };
 
     public static final Comparator<Spec> ORDER_REVERSE = Collections.reverseOrder(ORDER_NATURAL);
+
+    public abstract int getTokensCount();
+
+    /**
+     * Empty specifier contains no tokens
+     */
+    private static final class EmptySpec extends Spec {
+
+        private EmptySpec() {
+        }
+
+        @Override
+        public List<SToken> listTokens() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public int getTokensCount() {
+            return 0;
+        }
+    }
 }

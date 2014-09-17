@@ -1,7 +1,7 @@
 package citrea.swarm4j.model.callback;
 
 import citrea.swarm4j.model.ReferringToPeer;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.IdToken;
 
 /**
  * Created with IntelliJ IDEA.
@@ -12,5 +12,5 @@ import citrea.swarm4j.model.spec.SpecToken;
  */
 public interface Peer extends Uplink, ReferringToPeer {
 
-    void setPeerId(SpecToken id);
+    void setPeerId(IdToken id);
 }

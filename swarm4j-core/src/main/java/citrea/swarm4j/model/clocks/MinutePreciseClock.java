@@ -1,6 +1,6 @@
 package citrea.swarm4j.model.clocks;
 
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.SToken;
 
 /**
  * It is not always necessary to have second-precise timestamps.
@@ -35,7 +35,7 @@ public class MinutePreciseClock extends SomePreciseClock {
         if (seq >= MAX_SEQ) {
             throw new IllegalStateException("max event freq is 4000Hz");
         }
-        return seq < 64 ? SpecToken.int2base(seq, 1) : SpecToken.int2base(seq, 3);
+        return seq < 64 ? SToken.int2base(seq, 1) : SToken.int2base(seq, 3);
     }
 
     @Override
@@ -43,7 +43,7 @@ public class MinutePreciseClock extends SomePreciseClock {
         switch (seq.length()) {
             case 1:
             case 3:
-                return SpecToken.base2int(seq);
+                return SToken.base2int(seq);
             default:
                 throw new IllegalArgumentException("sequence part must be of 1 or 3 characters length");
         }

@@ -1,11 +1,8 @@
 package citrea.swarm4j.model.clocks;
 
-import citrea.swarm4j.model.spec.SpecQuant;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.VersionToken;
 
 import java.util.Date;
-
-import static citrea.swarm4j.model.spec.SpecQuant.VERSION;
 
 /**
  * Pure logical-time Lamport clocks.
@@ -21,11 +18,11 @@ public class LamportClock extends AbstractClock {
     public LamportClock(String processId, String initialTime) {
         super(processId, 0);
 
-        SpecToken specToken = new SpecToken(SpecQuant.VERSION, initialTime, processId);
+        VersionToken specToken = new VersionToken(initialTime, processId);
         // sometimes we assume our local clock has some offset
         if (NO_INITIAL_TIME.equals(specToken.getBare())) {
             this.lastSeqSeen = -1;
-            specToken = new SpecToken(VERSION, issueTimePart() + generateNextSequencePart(), id);
+            specToken = new VersionToken(issueTimePart() + generateNextSequencePart(), id);
         }
         this.lastIssuedTimestamp = specToken;
 
@@ -44,16 +41,16 @@ public class LamportClock extends AbstractClock {
     @Override
     protected String generateNextSequencePart() {
         int seq = ++this.lastSeqSeen;
-        return SpecToken.int2base(seq, SEQUENCE_PART_LENGTH);
+        return VersionToken.int2base(seq, SEQUENCE_PART_LENGTH);
     }
 
     @Override
     protected int parseSequencePart(String seq) {
-        return SpecToken.base2int(seq);
+        return VersionToken.base2int(seq);
     }
 
     @Override
-    public Date timestamp2date(SpecToken ts) {
+    public Date timestamp2date(VersionToken ts) {
         throw new UnsupportedOperationException("Lamport timestamp can't be converted to Date");
     }
 }

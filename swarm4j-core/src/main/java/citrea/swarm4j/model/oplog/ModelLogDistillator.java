@@ -1,6 +1,7 @@
 package citrea.swarm4j.model.oplog;
 
 import citrea.swarm4j.model.spec.Spec;
+import citrea.swarm4j.model.spec.VersionOpSpec;
 import citrea.swarm4j.model.value.JSONUtils;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
@@ -23,18 +24,19 @@ public class ModelLogDistillator implements LogDistillator {
      * necessary subset of it.
      * As a side effect, distillLog allows up to handle some partial
      * order issues (see _ops.set).
-     * @see citrea.swarm4j.model.Model#set(Spec, JsonValue)
+     * @see citrea.swarm4j.model.Model#set(citrea.swarm4j.model.spec.FullSpec, JsonValue)
      * @return {*} distilled log {spec:true}
+     * @param oplog
      */
     @Override
-    public Map<String, JsonValue> distillLog(Map<Spec, JsonValue> oplog) {
+    public Map<String, JsonValue> distillLog(Map<VersionOpSpec, JsonValue> oplog) {
         // explain
         final Map<String, JsonValue> cumul = new HashMap<String, JsonValue>();
         final Set<String> heads = new HashSet<String>();
         final Set<String> fieldsToRemove = new HashSet<String>(10);
-        List<Spec> sets = new ArrayList<Spec>(oplog.keySet());
+        List<VersionOpSpec> sets = new ArrayList<VersionOpSpec>(oplog.keySet());
         Collections.sort(sets, Spec.ORDER_REVERSE);
-        for (Spec spec : sets) {
+        for (VersionOpSpec spec : sets) {
             JsonValue jsonVal = oplog.get(spec);
             if (jsonVal == null || !jsonVal.isObject()) continue;
 
@@ -59,7 +61,7 @@ public class ModelLogDistillator implements LogDistillator {
                 }
                 oplog.put(spec, jo);
             }
-            String source = spec.getVersion().getExt();
+            String source = spec.getVersion().getProcessId();
             if (!notEmpty) {
                 if (heads.contains(source)) {
                     oplog.remove(spec);

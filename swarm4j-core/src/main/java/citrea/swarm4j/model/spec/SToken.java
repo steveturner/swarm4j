@@ -6,8 +6,18 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * One token id from specifier.
+ * One token from specifier.
+ * Each token starts with quant (@see SpecQuant) then body.
+ * Body consists of two parts: bare and processId(optional) separated by "+" symbol.
  *
+ * Common format for processId is "user~session".
+ * processId specifies where the token was generated.
+ *
+ * @see citrea.swarm4j.model.spec.TypeToken
+ * @see citrea.swarm4j.model.spec.IdToken
+ * @see citrea.swarm4j.model.spec.VersionToken
+ * @see citrea.swarm4j.model.spec.OpToken
+ * @see SQuant
  * @see Spec
  *
  * Created with IntelliJ IDEA.
@@ -15,52 +25,50 @@ import java.util.regex.Pattern;
  *         Date: 27/10/13
  *         Time: 12:54
  */
-public class SpecToken implements Comparable<SpecToken> {
+public class SToken implements Comparable<SToken> {
 
     public static final String RS_TOK = "[0-9A-Za-z_~]+";
     public static final String RS_Q_TOK_EXT = ("([$])((=)(?:\\+(=))?)")
-            .replaceAll("\\$", SpecQuant.allCodes)
+            .replaceAll("\\$", SQuant.allCodes)
             .replaceAll("=", RS_TOK);
     public static final Pattern RE_Q_TOK_EXT = Pattern.compile(RS_Q_TOK_EXT);
     public static final String RS_TOK_EXT = "^(=)(?:\\+(=))?$".replaceAll("=", RS_TOK);
     public static final String NO_AUTHOR = "swarm";
 
     public static final long EPOCH = 1262275200000L; // 1 Jan 2010 (milliseconds)
-    public static final SpecToken ZERO_VERSION = new SpecToken("!0");
-    public static final SpecToken NO_ID = new SpecToken("#NO_ID");
-    public static final SpecToken NO_TYPE = new SpecToken("/NOT_INITED");
+    public static final VersionToken ZERO_VERSION = new VersionToken("!0");
     public static final String BASE64 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~";
     public static final String RS_BASE64 = "[0-9A-Za-z_~]";
     public static final Pattern RE_BASE64 = Pattern.compile(RS_BASE64);
 
-    // "bare+ext"
+    // "bare+processId"
     private final String str;
     private boolean parsed;
 
     // parsed parts
-    private SpecQuant quant;
+    private SQuant quant;
     private String bare;
-    private String ext;
+    private String processId;
 
-    public SpecToken(String tokenAsString) {
+    SToken(String tokenAsString) {
         // TODO ??? validate format
         this.str = tokenAsString;
         this.parsed = false;
     }
 
-    public SpecToken(SpecQuant quant, String body) {
+    SToken(SQuant quant, String body) {
         this.quant = quant;
         parseBody(body);
         this.parsed = true;
-        this.str = quant.code + this.bare + (NO_AUTHOR.equals(this.ext) ? "" : "+" + this.ext);
+        this.str = quant.code + this.bare + (NO_AUTHOR.equals(this.processId) ? "" : "+" + this.processId);
     }
 
-    public SpecToken(SpecQuant quant, String bare, String ext) {
+    SToken(SQuant quant, String bare, String processId) {
         this.quant = quant;
         this.bare = bare;
-        this.ext = (ext != null && ext.length() > 0) ? ext : NO_AUTHOR;
+        this.processId = (processId != null && processId.length() > 0) ? processId : NO_AUTHOR;
         this.parsed = true;
-        this.str = quant.code + this.bare + (NO_AUTHOR.equals(this.ext) ? "" : "+" + this.ext);
+        this.str = quant.code + this.bare + (NO_AUTHOR.equals(this.processId) ? "" : "+" + this.processId);
     }
 
     /** Swarm employs 30bit integer Unix-like timestamps starting epoch at
@@ -71,7 +79,7 @@ public class SpecToken implements Comparable<SpecToken> {
      */
     public static String date2ts(Date date) {
         long time = date.getTime();
-        time -= SpecToken.EPOCH;
+        time -= SToken.EPOCH;
         return int2base((int) (time / 1000), 5);
     }
 
@@ -124,19 +132,20 @@ public class SpecToken implements Comparable<SpecToken> {
 
     private void ensureParsed() {
         if (parsed) { return; }
-        this.quant = SpecQuant.byCode(str.charAt(0));
+        this.quant = SQuant.byCode(str.charAt(0));
         parseBody(str.substring(1));
         this.parsed = true;
     }
 
     private void parseBody(String body) {
+        int bodyStart = (body.charAt(0) == this.quant.code ? 1 : 0);
         int pos = body.indexOf("+");
-        this.bare = (pos > -1 ? body.substring(0, pos) : body);
-        this.ext = (pos > -1 ? body.substring(pos + 1) : NO_AUTHOR);
+        this.bare = (pos > -1 ? body.substring(bodyStart, pos) : body.substring(bodyStart));
+        this.processId = (pos > -1 ? body.substring(pos + 1) : NO_AUTHOR);
     }
 
-    public SpecQuant getQuant() {
-        return (parsed ? quant : SpecQuant.byCode(str.charAt(0)));
+    public SQuant getQuant() {
+        return (parsed ? quant : SQuant.byCode(str.charAt(0)));
     }
 
     public String getBody() {
@@ -152,30 +161,30 @@ public class SpecToken implements Comparable<SpecToken> {
     }
 
     /**
-     * @return ext part of spec token
+     * @return processId part of spec token
      */
-    public String getExt() {
+    public String getProcessId() {
         ensureParsed();
-        return ext;
+        return processId;
     }
 
-    public SpecToken overrideQuant(SpecQuant quant) {
+    public SToken overrideQuant(SQuant quant) {
         ensureParsed();
-        return new SpecToken(quant, bare, ext);
+        return new SToken(quant, bare, processId);
     }
 
-    public SpecToken overrideBare(String bare) {
+    public SToken overrideBare(String bare) {
         ensureParsed();
-        return new SpecToken(quant, bare, ext);
+        return new SToken(quant, bare, processId);
     }
 
-    public SpecToken overrideExt(String ext) {
+    public SToken overrideExt(String ext) {
         ensureParsed();
-        SpecToken res;
+        SToken res;
         if (ext != null && ext.length() > 0) {
-            res = new SpecToken(quant, bare, ext);
+            res = new SToken(quant, bare, ext);
         } else {
-            res = new SpecToken(quant, bare, NO_AUTHOR);
+            res = new SToken(quant, bare, NO_AUTHOR);
         }
         return res;
     }
@@ -200,7 +209,7 @@ public class SpecToken implements Comparable<SpecToken> {
     }
 
     @Override
-    public int compareTo(SpecToken other) {
+    public int compareTo(SToken other) {
         if (this.str == null) {
             return other == null ? 0 : -1;
         } else {
@@ -208,10 +217,10 @@ public class SpecToken implements Comparable<SpecToken> {
         }
     }
 
-    public static final Comparator<SpecToken> ORDER_BY_QUANT = new Comparator<SpecToken>() {
+    public static final Comparator<SToken> ORDER_BY_QUANT = new Comparator<SToken>() {
 
         @Override
-        public int compare(SpecToken left, SpecToken right) {
+        public int compare(SToken left, SToken right) {
             if (left == null) {
                 return right == null ? 0 : -1;
             } else {
@@ -222,4 +231,22 @@ public class SpecToken implements Comparable<SpecToken> {
             }
         }
     };
+
+    public IdToken toIdToken() {
+        ensureParsed();
+        if (quant == SQuant.ID) {
+            return (IdToken) this;
+        } else {
+            return new IdToken(bare, processId);
+        }
+    }
+
+    public VersionToken toVersionToken() {
+        ensureParsed();
+        if (quant == SQuant.VERSION) {
+            return (VersionToken) this;
+        } else {
+            return new VersionToken(bare, processId);
+        }
+    }
 }

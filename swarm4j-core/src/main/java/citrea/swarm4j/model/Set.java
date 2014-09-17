@@ -5,10 +5,7 @@ import citrea.swarm4j.model.annotation.SwarmOperationKind;
 import citrea.swarm4j.model.annotation.SwarmType;
 import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.oplog.ModelLogDistillator;
-import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.spec.SpecPattern;
-import citrea.swarm4j.model.spec.SpecToken;
-import citrea.swarm4j.model.value.JSONUtils;
+import citrea.swarm4j.model.spec.*;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
 
@@ -25,17 +22,17 @@ import java.util.*;
 @SwarmType
 public class Set<T extends Syncable> extends Syncable {
 
-    public static final SpecToken CHANGE = new SpecToken(".change");
+    public static final OpToken CHANGE = new OpToken(".change");
     public static final String VALID = "";
 
     public static final JsonValue TRUE = JsonValue.valueOf(1);
     public static final JsonValue FALSE = JsonValue.valueOf(0);
 
-    private final Map<Spec, T> objects = new HashMap<Spec, T>();
+    private final Map<TypeIdSpec, T> objects = new HashMap<TypeIdSpec, T>();
     private final OpRecipient proxy = new ObjectProxy();
     private final List<ObjListener> objectListeners = new ArrayList<ObjListener>();
 
-    public Set(SpecToken id, Host host) throws SwarmException {
+    public Set(IdToken id, Host host) throws SwarmException {
         super(id, host);
         this.logDistillator = new ModelLogDistillator();
     }
@@ -46,7 +43,7 @@ public class Set<T extends Syncable> extends Syncable {
      * So, this is the only point in the code that mutates the state of a Set.
      */
     @SwarmOperation(kind = SwarmOperationKind.Logged)
-    public void change(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+    public void change(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
         value = this.distillOp(spec, value);
         if (!value.isObject()) return;
 
@@ -54,7 +51,7 @@ public class Set<T extends Syncable> extends Syncable {
 
         for (JsonObject.Member entry : jo) {
             String keySpecStr = entry.getName();
-            Spec key_spec = new Spec(keySpecStr);
+            TypeIdSpec key_spec = new TypeIdSpec(keySpecStr);
             JsonValue val = entry.getValue();
             if (TRUE.equals(val)) {
                 T obj = this.host.get(key_spec);
@@ -77,11 +74,11 @@ public class Set<T extends Syncable> extends Syncable {
         this.deliver(this.newEventSpec(CHANGE), changes, NOOP);
     }
 
-    public void onObjects(JsonValue filter, OpRecipient callback) {
+    public void onObjects(FilterSpec filter, OpRecipient callback) {
         this.objectListeners.add(new ObjListener(filter, callback));
     }
 
-    public void offObjects(JsonValue filter, OpRecipient callback) {
+    public void offObjects(FilterSpec filter, OpRecipient callback) {
         Iterator<ObjListener> it = this.objectListeners.iterator();
         while (it.hasNext()) {
             ObjListener item = it.next();
@@ -91,10 +88,9 @@ public class Set<T extends Syncable> extends Syncable {
         }
     }
 
-    public void onObjectEvent(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+    public void onObjectEvent(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
         for(ObjListener entry : this.objectListeners) {
-            if (!JSONUtils.isFalsy(entry.filter) &&
-                    !spec.fits(new Spec(entry.filter.asString()))) {
+            if (entry.filter != null && !spec.fits(entry.filter)) {
                 continue;
             }
             entry.listener.deliver(spec, value, source);
@@ -102,7 +98,7 @@ public class Set<T extends Syncable> extends Syncable {
     }
 
     @Override
-    public String validate(Spec spec, JsonValue val) {
+    public String validate(FullSpec spec, JsonValue val) {
         if (!CHANGE.equals(spec.getOp())) {
             return VALID;
         }
@@ -110,8 +106,9 @@ public class Set<T extends Syncable> extends Syncable {
             JsonObject jo = (JsonObject) val;
             for (String keySpecStr : jo.names()) {
                 // member spec validity
-                Spec key_spec = new Spec(keySpecStr);
-                if (key_spec.getPattern() != SpecPattern.TYPE_ID) {
+                try {
+                    new TypeIdSpec(keySpecStr);
+                } catch (IllegalArgumentException e) {
                     return "invalid spec: " + keySpecStr;
                 }
             }
@@ -119,11 +116,11 @@ public class Set<T extends Syncable> extends Syncable {
         return VALID;
     }
 
-    public JsonValue distillOp(Spec spec, JsonValue val) {
+    public JsonValue distillOp(FullSpec spec, JsonValue val) {
         if (this.version == null || this.version.compareTo(spec.getVersion().toString()) < 0) { //TODO check condition
             return val; // no concurrent op
         }
-        Spec opkey = spec.getVersionOp();
+        VersionOpSpec opkey = spec.getVersionOp();
         this.oplog.put(opkey, val);
         this.distillLog(); // may amend the value
         val = this.oplog.get(opkey);
@@ -135,10 +132,7 @@ public class Set<T extends Syncable> extends Syncable {
      * @param obj the object  //TODO , its id or its specifier.
      */
     public void addObject(T obj) throws SwarmException {
-        final Spec key_spec = obj.getTypeId();
-        if (key_spec.getPattern() != SpecPattern.TYPE_ID) {
-            throw new IllegalArgumentException("invalid spec: " + key_spec);
-        }
+        final TypeIdSpec key_spec = obj.getTypeId();
         JsonObject changes = new JsonObject();
         changes.set(key_spec.toString(), TRUE);
         change(changes);
@@ -146,11 +140,7 @@ public class Set<T extends Syncable> extends Syncable {
 
     // FIXME reactions to emit .add, .remove
 
-    public void removeObject(Spec key_spec) throws SwarmException {
-        key_spec = key_spec.getTypeId();
-        if (key_spec.getPattern() != SpecPattern.TYPE_ID) {
-            throw new IllegalArgumentException("invalid spec: " + key_spec);
-        }
+    public void removeObject(TypeIdSpec key_spec) throws SwarmException {
         JsonObject changes = new JsonObject();
         changes.set(key_spec.toString(), FALSE);
         change(changes);
@@ -164,11 +154,7 @@ public class Set<T extends Syncable> extends Syncable {
      * @param key_spec key (specifier)
      * @return object by key
      */
-    public T get(Spec key_spec) {
-        key_spec = key_spec.getTypeId();
-        if (key_spec.getPattern() != SpecPattern.TYPE_ID) {
-            throw new IllegalArgumentException("invalid spec: " + key_spec);
-        }
+    public T get(TypeIdSpec key_spec) {
         return this.objects.get(key_spec);
     }
 
@@ -189,7 +175,7 @@ public class Set<T extends Syncable> extends Syncable {
     public class ObjectProxy implements OpRecipient {
 
         @Override
-        public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+        public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
             Set.this.onObjectEvent(spec, value, source);
         }
 
@@ -200,10 +186,10 @@ public class Set<T extends Syncable> extends Syncable {
     }
 
     private class ObjListener {
-        final JsonValue filter;
+        final FilterSpec filter;
         final OpRecipient listener;
 
-        private ObjListener(JsonValue filter, OpRecipient listener) {
+        private ObjListener(FilterSpec filter, OpRecipient listener) {
             this.filter = filter;
             this.listener = listener;
         }

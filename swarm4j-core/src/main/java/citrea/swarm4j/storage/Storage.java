@@ -8,9 +8,7 @@ import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.callback.Peer;
 import citrea.swarm4j.model.clocks.Clock;
 import citrea.swarm4j.model.clocks.SecondPreciseClock;
-import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.spec.VersionVector;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.*;
 
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
@@ -38,10 +36,10 @@ public abstract class Storage implements Peer, Runnable {
 
     protected Host host;
     protected final Clock clock;
-    protected SpecToken id;
+    protected IdToken id;
     private boolean async = false;
 
-    protected Storage(SpecToken id) {
+    protected Storage(IdToken id) {
         this.id = id;
         // TODO allow to setup clock
         this.clock = new SecondPreciseClock(id.getBare());
@@ -65,12 +63,12 @@ public abstract class Storage implements Peer, Runnable {
      * then sequence number is added so a timestamp may be more than 5
      * chars. The id of the Host (+user~session) is appended to the ts.
      */
-    public SpecToken time() {
+    public VersionToken time() {
         return this.clock.issueTimestamp();
     }
 
     @Override
-    public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+    public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
         if (queueThread != null && queueThread != Thread.currentThread()) {
             // queue
             try {
@@ -80,7 +78,7 @@ public abstract class Storage implements Peer, Runnable {
             }
         } else {
             logger.debug("{}.deliver({}, {}, {})", this, spec, value, source);
-            final SpecToken op = spec.getOp();
+            final SToken op = spec.getOp();
             if (Syncable.ON.equals(op)) {
                 this.on(spec, value, source);
             } else if (Syncable.OFF.equals(op)) {
@@ -93,21 +91,21 @@ public abstract class Storage implements Peer, Runnable {
         }
     }
 
-    protected abstract void on(Spec spec, JsonValue value, OpRecipient source) throws SwarmException;
+    protected abstract void on(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException;
 
-    protected abstract void off(Spec spec, OpRecipient source) throws SwarmException;
+    protected abstract void off(FullSpec spec, OpRecipient source) throws SwarmException;
 
-    protected abstract void patch(Spec spec, JsonValue patch) throws SwarmException;
+    protected abstract void patch(FullSpec spec, JsonValue patch) throws SwarmException;
 
-    public void op(Spec spec, JsonValue val, OpRecipient source) throws SwarmException {
-        Spec ti = spec.getTypeId();
-        Spec vo = spec.getVersionOp();
+    public void op(FullSpec spec, JsonValue val, OpRecipient source) throws SwarmException {
+        TypeIdSpec ti = spec.getTypeId();
+        VersionOpSpec vo = spec.getVersionOp();
         JsonObject o = new JsonObject();
         o.set(vo.toString(), val);
         this.appendToLog(ti, o);
     }
 
-    protected abstract void appendToLog(Spec ti, JsonObject ver_op2val) throws SwarmException;
+    protected abstract void appendToLog(TypeIdSpec ti, JsonObject ver_op2val) throws SwarmException;
 
     /**
      * Derive version vector from a state of a Syncable object.
@@ -142,12 +140,12 @@ public abstract class Storage implements Peer, Runnable {
     }
 
     @Override
-    public SpecToken getPeerId() {
+    public IdToken getPeerId() {
         return id;
     }
 
     @Override
-    public void setPeerId(SpecToken id) {
+    public void setPeerId(IdToken id) {
         this.id = id;
     }
 

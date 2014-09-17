@@ -23,7 +23,7 @@ import java.util.*;
  *         Time: 01:05
  */
 public class WSServerImpl extends WebSocketServer {
-    public static final Logger logger = LoggerFactory.getLogger(WSServerImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(WSServerImpl.class);
     private final Utils utils;
 
     private final Host host;

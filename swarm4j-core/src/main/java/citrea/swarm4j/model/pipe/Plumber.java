@@ -1,7 +1,7 @@
 package citrea.swarm4j.model.pipe;
 
 import citrea.swarm4j.model.SwarmException;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.SToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,7 +25,7 @@ public final class Plumber implements Runnable {
     private Thread queueThread;
     private final DelayQueue<Event> events = new DelayQueue<Event>();
 
-    public void start(SpecToken hostId) {
+    public void start(SToken hostId) {
         new Thread(this, "Plumber" + hostId).start();
     }
 

@@ -1,6 +1,6 @@
 package citrea.swarm4j.model.clocks;
 
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.SToken;
 
 /**
  * Swarm is based on the Lamport model of time and events in a
@@ -43,7 +43,7 @@ public class SecondPreciseClock extends SomePreciseClock {
         if (seq >= MAX_SEQ) {
             throw new IllegalStateException("max event freq is 4000Hz");
         }
-        return seq > 0 ? SpecToken.int2base(seq, 2) : "";
+        return seq > 0 ? SToken.int2base(seq, 2) : "";
     }
 
     @Override
@@ -51,7 +51,7 @@ public class SecondPreciseClock extends SomePreciseClock {
         if (seq.length() != 0 && seq.length() != 2) {
             throw new IllegalArgumentException("sequence part must be empty or 2 characters length (got: " + seq + ")");
         }
-        return seq.length() != 0 ? SpecToken.base2int(seq) : 0;
+        return seq.length() != 0 ? SToken.base2int(seq) : 0;
     }
 
 }

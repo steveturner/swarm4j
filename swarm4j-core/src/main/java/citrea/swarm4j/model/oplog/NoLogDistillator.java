@@ -1,6 +1,6 @@
 package citrea.swarm4j.model.oplog;
 
-import citrea.swarm4j.model.spec.Spec;
+import citrea.swarm4j.model.spec.VersionOpSpec;
 import com.eclipsesource.json.JsonValue;
 
 
@@ -16,7 +16,7 @@ import java.util.Map;
  */
 public class NoLogDistillator implements LogDistillator {
     @Override
-    public Map<String, JsonValue> distillLog(Map<Spec, JsonValue> oplog) {
+    public Map<String, JsonValue> distillLog(Map<VersionOpSpec, JsonValue> oplog) {
         return Collections.emptyMap();
     }
 }

@@ -2,7 +2,7 @@ package citrea.swarm4j.model;
 
 import citrea.swarm4j.model.annotation.SwarmField;
 import citrea.swarm4j.model.annotation.SwarmType;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.IdToken;
 import com.eclipsesource.json.JsonObject;
 
 
@@ -20,7 +20,7 @@ public class Thermometer extends Model {
     public int t;
 
 
-    public Thermometer(SpecToken id, Host host) throws SwarmException {
+    public Thermometer(IdToken id, Host host) throws SwarmException {
         super(id, host);
     }
 

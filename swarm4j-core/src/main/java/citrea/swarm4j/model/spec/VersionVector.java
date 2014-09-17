@@ -13,33 +13,36 @@ public class VersionVector {
 
     private final Map<String, String> map = new HashMap<String, String>();
 
-    public VersionVector(Spec vec) {
+    public VersionVector(VersionVectorSpec vec) {
         this.add(vec);
     }
 
     public VersionVector(String vector) {
-        this.add(new Spec(vector));
+        this.add(new VersionVectorSpec(vector));
     }
 
     public VersionVector() {
 
     }
 
-    public void add(Spec versionVector) {
-        Iterator<SpecToken> it = versionVector.getTokenIterator(SpecQuant.VERSION);
+    public void add(VersionToken token) {
+        String time = token.getBare();
+        String source = token.getProcessId();
+        String knownTime = getKnownTime(source);
+        if (time.compareTo(knownTime) > 0) {
+            this.map.put(source, time);
+        }
+    }
+
+    public void add(VersionVectorSpec versionVector) {
+        Iterator<VersionToken> it = versionVector.getTokenIterator();
         while (it.hasNext()) {
-            SpecToken token = it.next();
-            String time = token.getBare();
-            String source = token.getExt();
-            String knownTime = getKnownTime(source);
-            if (time.compareTo(knownTime) > 0) {
-                this.map.put(source, time);
-            }
+            add(it.next());
         }
     }
 
     public void add(String versionVector) {
-        add(new Spec(versionVector));
+        add(new VersionVectorSpec(versionVector));
     }
 
     private String getKnownTime(String source) {
@@ -48,9 +51,9 @@ public class VersionVector {
         return res;
     }
 
-    public boolean covers(SpecToken version) {
+    public boolean covers(VersionToken version) {
         String time = version.getBare();
-        String source = version.getExt();
+        String source = version.getProcessId();
         String knownTime = getKnownTime(source);
         return time.compareTo(knownTime) <= 0;
     }
@@ -71,7 +74,7 @@ public class VersionVector {
         for (Map.Entry<String, String> entry: this.map.entrySet()) {
             String ext = entry.getKey();
             String time = entry.getValue();
-            ret.add("!" + time + (SpecToken.NO_AUTHOR.equals(ext) ? "" : "+" + ext));
+            ret.add("!" + time + (SToken.NO_AUTHOR.equals(ext) ? "" : "+" + ext));
         }
         Collections.sort(ret, STRING_REVERSE_ORDER);
         while (ret.size() > top || (ret.size() > 0 && ret.get(ret.size() - 1).compareTo(rot) <= 0)) {
@@ -84,7 +87,7 @@ public class VersionVector {
                 res.append(item);
             }
         } else {
-            res.append(SpecToken.ZERO_VERSION.toString());
+            res.append(SToken.ZERO_VERSION.toString());
         }
         return res.toString();
     }

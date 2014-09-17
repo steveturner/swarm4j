@@ -3,8 +3,7 @@ package citrea.swarm4j.model;
 import citrea.swarm4j.model.callback.Uplink;
 import citrea.swarm4j.model.pipe.OpChannel;
 import citrea.swarm4j.model.pipe.UnsupportedProtocolException;
-import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.*;
 
 import java.net.URI;
 
@@ -17,7 +16,7 @@ import java.net.URI;
  */
 public interface HostPeer extends Uplink, ReferringToPeer {
 
-    public Spec newEventSpec(SpecToken op);
+    public FullSpec newEventSpec(OpToken op);
 
     void accept(OpChannel stream);
 
@@ -25,7 +24,7 @@ public interface HostPeer extends Uplink, ReferringToPeer {
 
     void connect(OpChannel upstream) throws SwarmException;
 
-    void disconnect(SpecToken peerId) throws SwarmException;
+    void disconnect(IdToken peerId) throws SwarmException;
 
     void disconnect();
 }

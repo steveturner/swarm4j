@@ -3,7 +3,9 @@ package citrea.swarm4j.model.meta;
 import citrea.swarm4j.model.Host;
 import citrea.swarm4j.model.SwarmException;
 import citrea.swarm4j.model.Syncable;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.IdToken;
+import citrea.swarm4j.model.spec.OpToken;
+import citrea.swarm4j.model.spec.TypeToken;
 
 import java.util.Collection;
 
@@ -16,13 +18,13 @@ import java.util.Collection;
  */
 public interface TypeMeta {
     Class<? extends Syncable> getType();
-    SpecToken getTypeToken();
-    Syncable newInstance(SpecToken id, Host host) throws SwarmException;
+    TypeToken getTypeToken();
+    Syncable newInstance(IdToken id, Host host) throws SwarmException;
 
     FieldMeta getFieldMeta(String fieldName);
     Collection<FieldMeta> getAllFields();
 
-    OperationMeta getOperationMeta(SpecToken op);
+    OperationMeta getOperationMeta(OpToken op);
     OperationMeta getOperationMeta(String opName);
 
     String getDescription();

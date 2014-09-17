@@ -1,7 +1,7 @@
 package citrea.swarm4j.model.callback;
 
-import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.FullSpec;
+import citrea.swarm4j.model.spec.SToken;
 import com.eclipsesource.json.JsonValue;
 
 
@@ -14,19 +14,19 @@ import com.eclipsesource.json.JsonValue;
  */
 public class OpFilter extends FilteringOpRecipient<OpRecipient> {
 
-    private final SpecToken op;
+    private final SToken op;
 
-    public OpFilter(OpRecipient inner, SpecToken op) {
+    public OpFilter(OpRecipient inner, SToken op) {
         super(inner);
         this.op = op;
     }
 
     @Override
-    public boolean filter(Spec spec, JsonValue value, OpRecipient source) {
+    public boolean filter(FullSpec spec, JsonValue value, OpRecipient source) {
         return op.equals(spec.getOp());
     }
 
-    public SpecToken getOp() {
+    public SToken getOp() {
         return op;
     }
 

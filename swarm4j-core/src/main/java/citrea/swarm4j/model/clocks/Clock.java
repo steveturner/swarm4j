@@ -1,6 +1,6 @@
 package citrea.swarm4j.model.clocks;
 
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.VersionToken;
 
 import java.util.Date;
 
@@ -13,13 +13,13 @@ import java.util.Date;
  */
 public interface Clock {
 
-    SpecToken getLastIssuedTimestamp();
+    VersionToken getLastIssuedTimestamp();
 
-    SpecToken issueTimestamp();
+    VersionToken issueTimestamp();
 
-    TimestampParsed parseTimestamp(SpecToken ts);
+    TimestampParsed parseTimestamp(VersionToken ts);
 
-    void seeTimestamp(SpecToken ts);
+    void seeTimestamp(VersionToken ts);
 
-    Date timestamp2date(SpecToken ts);
+    Date timestamp2date(VersionToken ts);
 }

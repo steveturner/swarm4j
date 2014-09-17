@@ -9,8 +9,9 @@ import citrea.swarm4j.model.annotation.SwarmOperationKind;
 import citrea.swarm4j.model.meta.FieldMeta;
 import citrea.swarm4j.model.meta.OperationMeta;
 import citrea.swarm4j.model.meta.TypeMeta;
-import citrea.swarm4j.model.spec.SpecQuant;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.IdToken;
+import citrea.swarm4j.model.spec.OpToken;
+import citrea.swarm4j.model.spec.TypeToken;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
@@ -31,13 +32,13 @@ import java.util.Map;
 public class ReflectionTypeMeta implements TypeMeta {
 
     private final Class<? extends Syncable> type;
-    private final SpecToken typeToken;
+    private final TypeToken typeToken;
     private final Map<String, OperationMeta> operations = new HashMap<String, OperationMeta>();
     private final Map<String, FieldMeta> fields = new HashMap<String, FieldMeta>();
 
     public ReflectionTypeMeta(Class<? extends Syncable> type) throws SwarmException {
         this.type = type;
-        this.typeToken = new SpecToken(SpecQuant.TYPE, type.getSimpleName());
+        this.typeToken = new TypeToken(type.getSimpleName());
         detectSyncOperations();
         detectSyncFields();
     }
@@ -92,14 +93,14 @@ public class ReflectionTypeMeta implements TypeMeta {
     }
 
     @Override
-    public SpecToken getTypeToken() {
+    public TypeToken getTypeToken() {
         return typeToken;
     }
 
     @Override
-    public Syncable newInstance(SpecToken id, Host host) throws SwarmException {
+    public Syncable newInstance(IdToken id, Host host) throws SwarmException {
         try {
-            Constructor<? extends Syncable> constructor = type.getConstructor(SpecToken.class, Host.class);
+            Constructor<? extends Syncable> constructor = type.getConstructor(IdToken.class, Host.class);
             return constructor.newInstance(id, host);
         } catch (InvocationTargetException e) {
             Throwable ex = e.getTargetException();
@@ -119,7 +120,7 @@ public class ReflectionTypeMeta implements TypeMeta {
     }
 
     @Override
-    public OperationMeta getOperationMeta(SpecToken op) {
+    public OperationMeta getOperationMeta(OpToken op) {
         return getOperationMeta(op.getBody());
     }
 

@@ -1,10 +1,9 @@
 package citrea.swarm4j.model.clocks;
 
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.SToken;
+import citrea.swarm4j.model.spec.VersionToken;
 
 import java.util.Date;
-
-import static citrea.swarm4j.model.spec.SpecQuant.VERSION;
 
 /**
  * Created with IntelliJ IDEA.
@@ -34,7 +33,7 @@ public abstract class SomePreciseClock extends AbstractClock {
             this.clockOffsetMs = 0;
             initialTime = issueTimePart() + generateNextSequencePart();
         }
-        this.lastIssuedTimestamp = new SpecToken(VERSION, initialTime, id);
+        this.lastIssuedTimestamp = new VersionToken(initialTime, id);
         this.clockOffsetMs = parseTimestamp(this.lastIssuedTimestamp).time - this.getTimeInMillis();
         this.seeTimestamp(this.lastIssuedTimestamp);
     }
@@ -50,11 +49,11 @@ public abstract class SomePreciseClock extends AbstractClock {
         }
         this.lastTimeSeen = res;
 
-        return SpecToken.int2base(res, timePartLen);
+        return SToken.int2base(res, timePartLen);
     }
 
     @Override
-    public Date timestamp2date(SpecToken ts) {
+    public Date timestamp2date(VersionToken ts) {
         TimestampParsed parsed = parseTimestamp(ts);
         long millis = parsed.time * preciseInMillis + EPOCH;
         return new Date(millis);

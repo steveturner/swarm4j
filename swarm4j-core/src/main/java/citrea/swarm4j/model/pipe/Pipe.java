@@ -3,8 +3,7 @@ package citrea.swarm4j.model.pipe;
 import citrea.swarm4j.model.*;
 import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.callback.Peer;
-import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.*;
 
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
@@ -29,7 +28,7 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
 
     private static final AtomicInteger idSeq = new AtomicInteger(0);
 
-    public static final Set<SpecToken> SUBSCRIPTION_OPERATIONS = new HashSet<SpecToken>(Arrays.asList(
+    public static final Set<SToken> SUBSCRIPTION_OPERATIONS = new HashSet<SToken>(Arrays.asList(
             Syncable.ON,
             Syncable.REON
     ));
@@ -43,7 +42,7 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
     final HostPeer host;
     URI uri;
     protected OpChannel channel;
-    protected SpecToken peerId;
+    protected IdToken peerId;
     protected Boolean isOnSent = null;
     protected long reconnectTimeout;
     protected int connectionAttempt;
@@ -62,7 +61,7 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
             logger.debug("{} << {}", this, message);
         }
         this.lastReceivedTS = new Date().getTime();
-        for (Map.Entry<Spec, JsonValue> op : parse(message).entrySet()) {
+        for (Map.Entry<FullSpec, JsonValue> op : parse(message).entrySet()) {
             switch (state) {
                 case NEW:
                     processHandshake(op.getKey(), op.getValue());
@@ -88,13 +87,13 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
     }
 
     @Override
-    public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+    public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
         String message = Pipe.serialize(spec, value);
 
         sendMessage(message);
 
         if (Host.HOST.equals(spec.getType())) {
-            final SpecToken op = spec.getOp();
+            final SToken op = spec.getOp();
             if (Syncable.ON.equals(op)) {
                 this.isOnSent = true;
             } else if (Syncable.REON.equals(op)) {
@@ -118,7 +117,7 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
         lastSendTS = new Date().getTime();
     }
 
-    protected void processHandshake(Spec spec, JsonValue value) throws SwarmException {
+    protected void processHandshake(FullSpec spec, JsonValue value) throws SwarmException {
         if (spec == null) {
             throw new IllegalArgumentException("handshake has no spec");
         }
@@ -128,8 +127,8 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
         if (this.host.getPeerId().equals(spec.getId())) {
             throw new SelfHandshakeSwarmException(spec, value);
         }
-        SpecToken op = spec.getOp();
-        Spec event_spec = spec.overrideToken(this.host.getPeerId()).sort();
+        SToken op = spec.getOp();
+        FullSpec event_spec = spec.overrideId(this.host.getPeerId());
 
         if (SUBSCRIPTION_OPERATIONS.contains(op)) { // access denied TODO
             this.setPeerId(spec.getId());
@@ -156,7 +155,7 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
         if (State.HANDSHAKEN.equals(state)) {
             if (this.isOnSent != null) {
                 // emulate normal off
-                Spec offspec = this.host.newEventSpec(this.isOnSent ? Syncable.OFF : Syncable.REOFF);
+                FullSpec offspec = this.host.newEventSpec(this.isOnSent ? Syncable.OFF : Syncable.REOFF);
                 try {
                     this.host.deliver(offspec, JsonValue.NULL, this);
                 } catch (SwarmException e) {
@@ -177,7 +176,7 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
     }
 
     @Override
-    public void setPeerId(SpecToken id) {
+    public void setPeerId(IdToken id) {
         this.peerId = id;
         // now we know remote peer id  it means pipe is handshaken
         this.state = State.HANDSHAKEN;
@@ -189,16 +188,16 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
     }
 
     @Override
-    public SpecToken getPeerId() {
+    public IdToken getPeerId() {
         return peerId;
     }
 
-    private Spec typeId = null;
+    private TypeIdSpec typeId = null;
 
     @Override
-    public Spec getTypeId() {
+    public TypeIdSpec getTypeId() {
         if (typeId == null && !State.NEW.equals(state)) {
-            typeId = new Spec(Host.HOST, peerId);
+            typeId = new TypeIdSpec(Host.HOST, peerId);
         }
         return typeId;
     }
@@ -229,15 +228,15 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
         return payload.toString();
     }
 
-    public static SortedMap<Spec, JsonValue> parse(String message) {
+    public static SortedMap<FullSpec, JsonValue> parse(String message) {
 
         JsonObject bundle = JsonObject.readFrom(message);
 
         // sort operations by spec
-        SortedMap<Spec, JsonValue> operations = new TreeMap<Spec, JsonValue>(Spec.ORDER_NATURAL);
+        SortedMap<FullSpec, JsonValue> operations = new TreeMap<FullSpec, JsonValue>(Spec.ORDER_NATURAL);
         for (JsonObject.Member spec_val : bundle) {
             final String specStr = spec_val.getName();
-            final Spec spec = new Spec(specStr);
+            final FullSpec spec = new FullSpec(specStr);
             final JsonValue value = spec_val.getValue();
             operations.put(spec, value);
         }

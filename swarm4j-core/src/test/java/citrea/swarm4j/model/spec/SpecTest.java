@@ -20,114 +20,100 @@ public class SpecTest {
 
     @Test
     public void testOverrideToken() throws Exception {
-        Spec spec, spec2;
+        FullSpec spec, spec2;
         //shortening
-        spec = new Spec("/Type#id!version.op");
-        spec2 = spec.overrideToken(new SpecToken(SpecQuant.VERSION, "version2"));
-        assertNotSame(spec, spec2);
-        assertEquals("/Type#id!version2.op", spec2.toString());
-        spec2 = spec.overrideToken(new SpecToken(SpecQuant.OP, "op2"));
-        assertEquals("/Type#id!version.op2", spec2.toString());
-        spec2 = spec.overrideToken(new SpecToken(SpecQuant.ID, "id2"));
-        assertEquals("/Type#id2!version.op", spec2.toString());
-        spec2 = spec.overrideToken(new SpecToken(SpecQuant.TYPE, "Type2"));
-        assertEquals("/Type2#id!version.op", spec2.toString());
+        spec = new FullSpec("/Type#id!version.op");
 
-        //extending
-        spec = new Spec("/Type");
-        spec2 = spec.overrideToken(new SpecToken(SpecQuant.ID, "id"));
-        assertEquals("/Type#id", spec2.toString());
+        spec2 = spec.overrideOp(new OpToken("op2"));
+        assertNotSame(spec, spec2);
+        assertEquals("/Type#id!version.op2", spec2.toString());
+
+        spec2 = spec.overrideId(new IdToken("id2"));
+        assertNotSame(spec, spec2);
+        assertEquals("/Type#id2!version.op", spec2.toString());
+
+        //extending TODO test TypeIdSpec.fullSpec()
     }
 
     @Test
     public void testIsEmpty() throws Exception {
-        Spec emptySpec = new Spec();
+        Spec emptySpec = Spec.parseSpec("");
         assertTrue(emptySpec.isEmpty());
     }
 
     @Test
     public void testGetTokensCount() throws Exception {
         Spec spec;
-        spec = new Spec("/Type#id!version.operation");
+        spec = new FullSpec("/Type#id!version.operation");
         assertEquals(4, spec.getTokensCount());
-        spec = new Spec("/Type#id!version");
+        spec = new FilterSpec("/Type#id!version");
         assertEquals(3, spec.getTokensCount());
-        spec = new Spec("/Type#id");
+        spec = new TypeIdSpec("/Type#id");
         assertEquals(2, spec.getTokensCount());
-        spec = new Spec("!version.operation");
+        spec = new VersionOpSpec("!version.operation");
         assertEquals(2, spec.getTokensCount());
-        spec = new Spec("/Type");
+        spec = new FilterSpec("/Type");
         assertEquals(1, spec.getTokensCount());
-        spec = new Spec();
+        spec = new FilterSpec("");
         assertEquals(0, spec.getTokensCount());
     }
 
     @Test
     public void testGetToken() throws Exception {
-        Spec spec;
-        spec = new Spec("/Type#id!version.op");
-        assertEquals("/Type", spec.getToken(SpecQuant.TYPE).toString());
-        assertEquals("#id", spec.getToken(SpecQuant.ID).toString());
-        assertEquals(".op", spec.getToken(SpecQuant.OP).toString());
-        assertEquals("!version", spec.getToken(SpecQuant.VERSION).toString());
-    }
-
-    @Test
-    public void testGetTokenAliases() throws Exception {
-        Spec spec = new Spec("/Type#id!version.op");
-        assertSame(spec.getToken(SpecQuant.TYPE), spec.getType());
-        assertSame(spec.getToken(SpecQuant.ID), spec.getId());
-        assertSame(spec.getToken(SpecQuant.OP), spec.getOp());
-        assertSame(spec.getToken(SpecQuant.VERSION), spec.getVersion());
+        FullSpec spec;
+        spec = new FullSpec("/Type#id!version.op");
+        assertEquals("/Type", spec.getType().toString());
+        assertEquals("#id", spec.getId().toString());
+        assertEquals("!version", spec.getVersion().toString());
+        assertEquals(".op", spec.getOp().toString());
     }
 
     @Test
     public void testGetTypeId() throws Exception {
-        Spec spec = new Spec("/Type#id!version.op");
+        FullSpec spec = new FullSpec("/Type#id!version.op");
         assertEquals("/Type#id", spec.getTypeId().toString());
     }
 
     @Test
     public void testGetVersionOp() throws Exception {
-        Spec spec = new Spec("/Type#id!version.op");
+        FullSpec spec = new FullSpec("/Type#id!version.op");
         assertEquals("!version.op", spec.getVersionOp().toString());
     }
 
     @Test
     public void testGetTokenIterator() throws Exception {
-        Spec spec = new Spec("/Type1!v1+s1/Type2!v2+s2!v3+s2");
-        Iterator<SpecToken> it = spec.getTokenIterator(SpecQuant.VERSION);
-        List<SpecToken> tokens = new ArrayList<SpecToken>();
+        VersionVectorSpec spec = new VersionVectorSpec("!v1+s1!v2+s2!v3+s2");
+        Iterator<VersionToken> it = spec.getTokenIterator();
+        List<SToken> tokens = new ArrayList<SToken>();
         while (it.hasNext()) {
             tokens.add(it.next());
         }
         assertEquals(3, tokens.size());
-        assertEquals(new SpecToken("!v1+s1"), tokens.get(0));
-        assertEquals(new SpecToken("!v2+s2"), tokens.get(1));
-        assertEquals(new SpecToken("!v3+s2"), tokens.get(2));
+        assertEquals(new SToken("!v1+s1"), tokens.get(0));
+        assertEquals(new SToken("!v2+s2"), tokens.get(1));
+        assertEquals(new SToken("!v3+s2"), tokens.get(2));
     }
 
     @Test
     public void testSort() throws Exception {
         final String rightOrdered = "/Type#id!ver.op";
-        Spec spec = new Spec(rightOrdered);
+        Spec spec = Spec.parseSpec(rightOrdered);
         // leave correct order
-        assertEquals(rightOrdered, spec.sort().toString());
+        assertEquals(rightOrdered, spec.toString());
         // fix order
-        spec = new Spec("#id/Type!ver.op");
-        assertEquals(rightOrdered, spec.sort().toString());
-        spec = new Spec("#id!ver/Type.op");
-        assertEquals(rightOrdered, spec.sort().toString());
-        spec = new Spec(".op!ver#id/Type");
-        assertEquals(rightOrdered, spec.sort().toString());
+        spec = Spec.parseSpec("#id/Type!ver.op");
+        assertEquals(rightOrdered, spec.toString());
+        spec = Spec.parseSpec("#id!ver/Type.op");
+        assertEquals(rightOrdered, spec.toString());
+        spec = Spec.parseSpec(".op!ver#id/Type");
+        assertEquals(rightOrdered, spec.toString());
     }
 
     @Test
     public void testToString() throws Exception {
-        Spec spec = new Spec(
-                new SpecToken("/Mouse"),
-                new SpecToken("#s1"),
-                new SpecToken("!8oJOb03+s1~0"),
+        FullSpec spec = new FullSpec(
+                new TypeIdSpec("/Mouse#s1"),
+                new VersionToken("!8oJOb03+s1~0"),
                 Syncable.ON
         );
         assertEquals("/Mouse#s1!8oJOb03+s1~0.on", spec.toString());
@@ -135,7 +121,7 @@ public class SpecTest {
 
     @Test
     public void testEquals() throws Exception {
-        Spec spec = new Spec("/Mouse#s1!8oJOb03+s1~0.on");
+        FullSpec spec = new FullSpec("/Mouse#s1!8oJOb03+s1~0.on");
         //noinspection EqualsBetweenInconvertibleTypes
         assertTrue("comparing to string", spec.equals("/Mouse#s1!8oJOb03+s1~0.on"));
     }

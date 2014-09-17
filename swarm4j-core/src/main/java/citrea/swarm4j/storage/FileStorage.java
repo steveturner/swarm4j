@@ -4,8 +4,7 @@ import citrea.swarm4j.model.Host;
 import citrea.swarm4j.model.SwarmException;
 import citrea.swarm4j.model.Syncable;
 import citrea.swarm4j.model.callback.OpRecipient;
-import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.*;
 
 import citrea.swarm4j.model.value.JSONUtils;
 import com.eclipsesource.json.JsonArray;
@@ -51,7 +50,7 @@ public class FileStorage extends Storage {
     // TODO filestorage config
     private static final int MAX_LOG_SIZE = 1 << 15;
 
-    private final Map<Spec, Map<Spec, JsonValue>> tails = new HashMap<Spec, Map<Spec, JsonValue>>();
+    private final Map<TypeIdSpec, Map<VersionOpSpec, JsonValue>> tails = new HashMap<TypeIdSpec, Map<VersionOpSpec, JsonValue>>();
     private final String dir;
     private final Queue<String> dirtyQueue = new ArrayDeque<String>();
 
@@ -61,7 +60,7 @@ public class FileStorage extends Storage {
     private long pulling;
 
 
-    public FileStorage(SpecToken id, String dir) throws SwarmException {
+    public FileStorage(IdToken id, String dir) throws SwarmException {
         super(id);
         this.host = null; //will be set during Host creation
 
@@ -78,7 +77,7 @@ public class FileStorage extends Storage {
                 throw new SwarmException("Can't create logs directory: " + storageLogs.getName());
             }
         }
-        this.id = new SpecToken("#file"); //path.basename(dir);
+        this.id = new IdToken("#file"); //path.basename(dir);
 
         this.logCount = 0;
         this.loadTails();
@@ -86,15 +85,15 @@ public class FileStorage extends Storage {
     }
 
     @Override
-    protected void appendToLog(Spec ti, JsonObject verop2val) throws SwarmException {
-        Map<Spec, JsonValue> tail = this.tails.get(ti);
+    protected void appendToLog(TypeIdSpec ti, JsonObject verop2val) throws SwarmException {
+        Map<VersionOpSpec, JsonValue> tail = this.tails.get(ti);
         if (tail == null) {
-            tail = new HashMap<Spec, JsonValue>();
+            tail = new HashMap<VersionOpSpec, JsonValue>();
             this.tails.put(ti, tail);
         }
         // stash ops in RAM (can't seek in the log file so need that)
         for (JsonObject.Member verop_val : verop2val) {
-            tail.put(new Spec(verop_val.toString()), verop_val.getValue());
+            tail.put(new VersionOpSpec(verop_val.getName()), verop_val.getValue());
         }
         // queue the object for state flush
         this.dirtyQueue.add(ti.toString());
@@ -123,13 +122,13 @@ public class FileStorage extends Storage {
         }
     }
 
-    void pullState(Spec ti) throws SwarmException {
+    void pullState(TypeIdSpec ti) throws SwarmException {
         String spec;
         while ((spec = this.dirtyQueue.poll()) != null) {
             if (spec.matches("\\d+")) {
                 // TODO ??? String cleared = this.logFileName(Integer.valueOf(spec));
                 // FIXME we should not delete the file before the state will be flushed to the disk
-            } else if (this.tails.containsKey(new Spec(spec))) {
+            } else if (this.tails.containsKey(new TypeIdSpec(spec))) {
                 break; // flush it
             }
         }
@@ -142,15 +141,15 @@ public class FileStorage extends Storage {
         // Only a live object can integrate log tail into the state,
         // so we use this trick. As object lifecycles differ in Host
         // and FileStorage we can't safely access the object directly.
-        final Spec onSpec = ti.addToken(this.time()).addToken(Syncable.ON);
-        this.host.deliver(onSpec, JsonValue.valueOf(Syncable.INIT.toString() + SpecToken.ZERO_VERSION), this);
+        final FullSpec onSpec = ti.fullSpec(this.time(), Syncable.ON);
+        this.host.deliver(onSpec, JsonValue.valueOf(Syncable.INIT.toString() + SToken.ZERO_VERSION), this);
     }
 
     @Override
-    public void patch(Spec spec, JsonValue patchVal) throws SwarmException {
+    public void patch(FullSpec spec, JsonValue patchVal) throws SwarmException {
         if (!(patchVal instanceof JsonObject)) return;
         JsonObject patch = (JsonObject) patchVal;
-        Spec ti = spec.getTypeId();
+        TypeIdSpec ti = spec.getTypeId();
         if (JSONUtils.isFalsy(patch.get(Syncable.VERSION_FIELD))) { // no full state, just the tail
             JsonValue tail = patch.get(Syncable.TAIL_FIELD);
             if (tail.isObject()) {
@@ -203,7 +202,7 @@ public class FileStorage extends Storage {
     }
 
     String logFileName(int count) {
-        return this.dir + "/_log/log" + SpecToken.int2base(count, 8);
+        return this.dir + "/_log/log" + SToken.int2base(count, 8);
     }
 
     int parseLogFileName(String fileName) {
@@ -212,10 +211,10 @@ public class FileStorage extends Storage {
         if (!m.matches()) {
             throw new IllegalArgumentException("Wrong log file name: " + fileName);
         }
-        return SpecToken.base2int(m.group(1));
+        return SToken.base2int(m.group(1));
     }
 
-    String stateFileName(Spec spec) {
+    String stateFileName(TypeIdSpec spec) {
         return this.dir + "/" +
                 spec.getType().getBody() + "/" +
                 spec.getId().getBody(); // TODO hashing (issue: may break FAT caching?)
@@ -239,8 +238,8 @@ public class FileStorage extends Storage {
     }
 
     @Override
-    public void on(Spec spec, JsonValue base, OpRecipient replica) throws SwarmException {
-        Spec ti = spec.getTypeId();
+    public void on(FullSpec spec, JsonValue base, OpRecipient replica) throws SwarmException {
+        TypeIdSpec ti = spec.getTypeId();
         String stateFileName = this.stateFileName(ti);
 
         // read in the state
@@ -254,7 +253,7 @@ public class FileStorage extends Storage {
         // load state
         JsonObject state = new JsonObject();
         if (stateFileReader == null) {
-            state.set(Syncable.VERSION_FIELD, JsonValue.valueOf(SpecToken.ZERO_VERSION.toString()));
+            state.set(Syncable.VERSION_FIELD, JsonValue.valueOf(SToken.ZERO_VERSION.toString()));
         } else {
             try {
                 StringBuilder stateData = new StringBuilder();
@@ -263,7 +262,7 @@ public class FileStorage extends Storage {
                     stateData.append(line);
                 }
                 state = JsonObject.readFrom(stateData.toString());
-                Map<Spec, JsonValue> tail = this.tails.get(ti);
+                Map<VersionOpSpec, JsonValue> tail = this.tails.get(ti);
                 if (tail != null) {
                     JsonValue state_tail_val = state.get(Syncable.TAIL_FIELD);
                     JsonObject state_tail;
@@ -272,7 +271,7 @@ public class FileStorage extends Storage {
                     } else {
                         state_tail = new JsonObject();
                     }
-                    for (Map.Entry<Spec, JsonValue> op : tail.entrySet()) {
+                    for (Map.Entry<VersionOpSpec, JsonValue> op : tail.entrySet()) {
                         state_tail.set(op.getKey().toString(), op.getValue());
                     }
                     state.set(Syncable.TAIL_FIELD, state_tail);
@@ -289,16 +288,16 @@ public class FileStorage extends Storage {
             }
         }
 
-        Spec tiv = ti.addToken(spec.getVersion());
-        replica.deliver(tiv.addToken(Syncable.PATCH), state, this);
+        VersionToken version = spec.getVersion();
+        replica.deliver(ti.fullSpec(version, Syncable.PATCH), state, this);
         String versionVector = Storage.stateVersionVector(state);
-        replica.deliver(tiv.addToken(Syncable.REON), JsonValue.valueOf(versionVector), this);
+        replica.deliver(ti.fullSpec(version, Syncable.REON), JsonValue.valueOf(versionVector), this);
     }
 
     @Override
-    public void off(Spec spec, OpRecipient src) throws SwarmException {
+    public void off(FullSpec spec, OpRecipient src) throws SwarmException {
         // if (this.tails[ti]) TODO half-close
-        src.deliver(spec.overrideToken(Syncable.REON), JsonValue.NULL, this);
+        src.deliver(spec.overrideOp(Syncable.REON), JsonValue.NULL, this);
     }
 
     /**
@@ -352,18 +351,19 @@ public class FileStorage extends Storage {
                         JsonObject blockObj = block.asObject();
                         for (JsonObject.Member tidoid_ops : blockObj) {
                             String tidoid = tidoid_ops.getName();
-                            Map<Spec, JsonValue> tail = this.tails.get(new Spec(tidoid));
+                            TypeIdSpec ti_spec = new TypeIdSpec(tidoid);
+                            Map<VersionOpSpec, JsonValue> tail = this.tails.get(ti_spec);
                             JsonValue ops = tidoid_ops.getValue();
                             if (tail == null) {
-                                tail = new HashMap<Spec, JsonValue>();
-                                this.tails.put(new Spec(tidoid), tail);
+                                tail = new HashMap<VersionOpSpec, JsonValue>();
+                                this.tails.put(ti_spec, tail);
                                 this.dirtyQueue.add(tidoid);
                             }
                             if (!ops.isObject()) continue;
 
                             JsonObject opsObj = ops.asObject();
                             for (JsonObject.Member spec_val : opsObj) {
-                                tail.put(new Spec(spec_val.getName()), spec_val.getValue());
+                                tail.put(new VersionOpSpec(spec_val.getName()), spec_val.getValue());
                             }
                         }
                     }
@@ -375,8 +375,8 @@ public class FileStorage extends Storage {
         }
     }
 
-    public Spec getTypeId() {
-        return new Spec(Host.HOST, id);
+    public TypeIdSpec getTypeId() {
+        return new TypeIdSpec(Host.HOST, id);
     }
 
 }

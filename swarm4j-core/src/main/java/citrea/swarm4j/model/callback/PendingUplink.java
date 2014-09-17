@@ -2,8 +2,9 @@ package citrea.swarm4j.model.callback;
 
 import citrea.swarm4j.model.SwarmException;
 import citrea.swarm4j.model.Syncable;
-import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.FullSpec;
+import citrea.swarm4j.model.spec.SToken;
+import citrea.swarm4j.model.spec.TypeIdSpec;
 import com.eclipsesource.json.JsonValue;
 
 
@@ -17,28 +18,28 @@ import com.eclipsesource.json.JsonValue;
 public class PendingUplink extends FilteringOpRecipient<Uplink> implements Uplink {
 
     private final Syncable object;
-    private final SpecToken requestedVersion;
+    private final SToken requestedVersion;
 
-    public PendingUplink(Syncable object, Uplink original, SpecToken requestedVersion) {
+    public PendingUplink(Syncable object, Uplink original, SToken requestedVersion) {
         super(original);
         this.object = object;
         this.requestedVersion = requestedVersion;
     }
 
     @Override
-    protected boolean filter(Spec spec, JsonValue value, OpRecipient source) {
+    protected boolean filter(FullSpec spec, JsonValue value, OpRecipient source) {
         // only response for my request
         return requestedVersion.equals(spec.getVersion());
     }
 
     @Override
-    protected void deliverInternal(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+    protected void deliverInternal(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
         object.removeListener(this);
         object.addUplink(this.getInner());
     }
 
     @Override
-    public Spec getTypeId() {
+    public TypeIdSpec getTypeId() {
         return this.inner.getTypeId();
     }
 }

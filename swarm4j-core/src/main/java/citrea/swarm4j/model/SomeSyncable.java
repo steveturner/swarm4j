@@ -1,8 +1,8 @@
 package citrea.swarm4j.model;
 
 import citrea.swarm4j.model.callback.OpRecipient;
-import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.spec.IdToken;
+import citrea.swarm4j.model.spec.TypeIdSpec;
 
 /**
  * Created with IntelliJ IDEA.
@@ -13,7 +13,7 @@ import citrea.swarm4j.model.spec.SpecToken;
  */
 interface SomeSyncable extends ReferringToPeer, OpRecipient {
 
-    Spec getTypeId();
+    TypeIdSpec getTypeId();
 
-    SpecToken getId();
+    IdToken getId();
 }

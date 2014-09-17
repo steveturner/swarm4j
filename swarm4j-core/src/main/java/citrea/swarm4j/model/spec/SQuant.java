@@ -13,27 +13,27 @@ import java.util.Map;
  *         Date: 26/10/13
  *         Time: 21:51
  */
-public enum SpecQuant {
+public enum SQuant {
     TYPE('/'),
     ID('#'),
     VERSION('!'),
     OP('.');
 
-    private static final Map<Character, SpecQuant> code2item;
-    private static final SpecQuant[] allInOrder;
+    private static final Map<Character, SQuant> code2item;
+    private static final SQuant[] allInOrder;
     public static final String allCodes;
 
     static {
-        code2item = new HashMap<Character, SpecQuant>(4);
+        code2item = new HashMap<Character, SQuant>(4);
         code2item.put(TYPE.code, TYPE);
         code2item.put(OP.code, OP);
         code2item.put(ID.code, ID);
         code2item.put(VERSION.code, VERSION);
 
-        allInOrder = SpecQuant.values();
+        allInOrder = SQuant.values();
 
         String codes = "";
-        for (SpecQuant q : SpecQuant.values()) {
+        for (SQuant q : SQuant.values()) {
             codes += q.code;
         }
         allCodes = codes;
@@ -46,18 +46,18 @@ public enum SpecQuant {
 
     public final char code;
 
-    private SpecQuant prev = null;
-    private SpecQuant next = null;
+    private SQuant prev = null;
+    private SQuant next = null;
 
-    private SpecQuant(char code) {
+    private SQuant(char code) {
         this.code = code;
     }
 
-    public SpecQuant prev() {
+    public SQuant prev() {
         return prev;
     }
 
-    public SpecQuant next() {
+    public SQuant next() {
         return next;
     }
 
@@ -66,15 +66,15 @@ public enum SpecQuant {
         return String.valueOf(code);
     }
 
-    public static SpecQuant byCode(Character q) {
+    public static SQuant byCode(Character q) {
         return code2item.get(q);
     }
 
-    public static SpecQuant byCode(String q) {
+    public static SQuant byCode(String q) {
         return code2item.get(q.charAt(0));
     }
 
-    public static SpecQuant byOrder(int order) {
+    public static SQuant byOrder(int order) {
         return allInOrder[order];
     }
 }
