@@ -11,7 +11,7 @@ import java.util.*;
  */
 public class VersionVector {
 
-    private Map<String, String> map = new HashMap<String, String>();
+    private final Map<String, String> map = new HashMap<String, String>();
 
     public VersionVector(Spec vec) {
         this.add(vec);
@@ -73,7 +73,7 @@ public class VersionVector {
             String time = entry.getValue();
             ret.add("!" + time + (SpecToken.NO_AUTHOR.equals(ext) ? "" : "+" + ext));
         }
-        Collections.sort(ret, new StringComparator(true));
+        Collections.sort(ret, STRING_REVERSE_ORDER);
         while (ret.size() > top || (ret.size() > 0 && ret.get(ret.size() - 1).compareTo(rot) <= 0)) {
             ret.remove(ret.size() - 1);
         }
@@ -102,17 +102,11 @@ public class VersionVector {
         return bare;
     }
 
-    private static class StringComparator implements Comparator<String> {
-
-        private boolean reverse;
-
-        private StringComparator(boolean reverse) {
-            this.reverse = reverse;
-        }
+    private static final Comparator<String> STRING_REVERSE_ORDER = new Comparator<String>() {
 
         @Override
         public int compare(String s1, String s2) {
-            return reverse ? s2.compareTo(s1) : s1.compareTo(s2);
+            return s2.compareTo(s1);
         }
-    }
+    };
 }

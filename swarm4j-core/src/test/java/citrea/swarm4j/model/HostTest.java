@@ -24,37 +24,24 @@ import static org.junit.Assert.*;
  */
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class HostTest {
-    public static Logger logger = LoggerFactory.getLogger(HostTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(HostTest.class);
 
-    private Thread storageThread;
-    private XInMemoryStorage storage;
-    private Thread hostThread;
     private Host host;
 
     @Before
     public void setUp() throws Exception {
-        storage = new XInMemoryStorage(new SpecToken("#dummy"));
-        storageThread = new Thread(storage);
-        storageThread.start();
+        XInMemoryStorage storage = new XInMemoryStorage(new SpecToken("#dummy"));
         host = new Host(new SpecToken("#gritzko"), storage);
         host.registerType(Duck.class);
-        hostThread = new Thread(host);
-        hostThread.start();
-        while (!host.ready()) {
-            Thread.sleep(10);
-        }
+        host.start();
+        host.waitForStart();
     }
 
     @After
     public void tearDown() throws Exception {
+        host.stop();
         host.close();
         host = null;
-        hostThread.interrupt();
-        hostThread = null;
-
-        storage = null;
-        storageThread.interrupt();
-        storageThread = null;
     }
 
     @Test

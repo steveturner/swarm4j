@@ -1,7 +1,5 @@
 package citrea.swarm4j.model;
 
-import citrea.swarm4j.model.annotation.SwarmOperation;
-import citrea.swarm4j.model.annotation.SwarmOperationKind;
 import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.spec.Spec;
 import citrea.swarm4j.model.spec.SpecToken;

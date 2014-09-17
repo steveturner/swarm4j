@@ -1,7 +1,6 @@
 package citrea.swarm4j.client;
 
 import citrea.swarm4j.model.pipe.ConnectableOpChannel;
-import citrea.swarm4j.model.pipe.OpChannel;
 import citrea.swarm4j.model.pipe.OpChannelFactory;
 import citrea.swarm4j.model.pipe.UnsupportedProtocolException;
 

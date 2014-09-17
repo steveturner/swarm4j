@@ -1,10 +1,7 @@
 package citrea.swarm4j.model.spec;
 
-
-
 import java.util.*;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Specifier "/type#id.member!version"
@@ -16,16 +13,10 @@ import java.util.regex.Pattern;
  */
 public class Spec implements Comparable<Spec> {
 
-    public static final String RS_Q_TOK_EXT = ("([$])(=(?:\\+=)?)")
-            .replaceAll("\\$", SpecQuant.allCodes)
-            .replaceAll("=", SpecToken.RS_TOK);
-    public static final Pattern RE_Q_TOK_EXT = Pattern.compile(RS_Q_TOK_EXT);
+    private static final int AVERAGE_SPEC_LENGTH = 48;
 
-    public static final String BASE64 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~";
-    public static final String RS_BASE64 = "[0-9A-Za-z_~]";
-    public static final Pattern RE_BASE64 = Pattern.compile(RS_BASE64);
-
-    private SpecToken[] tokens;
+    private final SpecToken[] tokens;
+    private final String asString;
 
     public Spec(SpecToken... tokens) {
         int j = 0;
@@ -38,26 +29,31 @@ public class Spec implements Comparable<Spec> {
             }
         }
         if (j < tokens.length) {
-            tokens = Arrays.copyOf(tokens, j);
+            tokens = cloneTokens(tokens, j);
         }
         this.tokens = tokens;
+        StringBuilder sb = new StringBuilder(AVERAGE_SPEC_LENGTH);
+        for (SpecToken tok : tokens) {
+            sb.append(tok.toString());
+        }
+        this.asString = sb.toString();
     }
 
     public Spec(Spec copy) {
-        this(Arrays.copyOf(copy.tokens, copy.tokens.length));
+        this(cloneTokens(copy.tokens, copy.tokens.length));
     }
 
     public Spec(String specAsString) {
         this(Spec.parse(specAsString));
     }
 
-    public Spec addToken(SpecToken token) {
-        SpecToken[] newTokens = Arrays.copyOf(tokens, tokens.length + 1);
+    public final Spec addToken(SpecToken token) {
+        SpecToken[] newTokens = cloneTokens(tokens, tokens.length + 1);
         newTokens[tokens.length] = token;
         return new Spec(newTokens);
     }
 
-    public Spec addToken(String token) {
+    public final Spec addToken(String token) {
         SpecToken[] tokensToAdd = new Spec(token).tokens;
         SpecToken[] newTokens = new SpecToken[tokens.length + tokensToAdd.length];
         System.arraycopy(tokens, 0, newTokens, 0, tokens.length);
@@ -67,7 +63,7 @@ public class Spec implements Comparable<Spec> {
 
     public Spec overrideToken(SpecToken overrideWith) {
         final SpecQuant q = overrideWith.getQuant();
-        SpecToken[] newTokens = Arrays.copyOf(tokens, tokens.length);
+        SpecToken[] newTokens = cloneTokens(tokens, tokens.length);
         boolean found = false;
         for (int i = 0, l = newTokens.length; i < l; i++) {
             SpecToken token = newTokens[i];
@@ -78,18 +74,14 @@ public class Spec implements Comparable<Spec> {
             }
         }
         if (!found) {
-            newTokens = Arrays.copyOf(newTokens, newTokens.length + 1);
+            newTokens = cloneTokens(newTokens, newTokens.length + 1);
             newTokens[newTokens.length - 1] = overrideWith;
         }
         return new Spec(newTokens);
     }
 
-    public Spec overrideToken(String token) {
-        return overrideToken(new SpecToken(token));
-    }
-
     public Spec sort() {
-        SpecToken[] newTokens = Arrays.copyOf(tokens, tokens.length);
+        SpecToken[] newTokens = cloneTokens(tokens, tokens.length);
         Arrays.sort(newTokens, SpecToken.ORDER_BY_QUANT);
         return new Spec(newTokens);
     }
@@ -120,11 +112,11 @@ public class Spec implements Comparable<Spec> {
     }
 
     public Spec getTypeId() {
-        return new Spec(new SpecToken[] { getType(), getId() });
+        return new Spec(getType(), getId());
     }
 
     public Spec getVersionOp() {
-        return new Spec(new SpecToken[] { getVersion(), getOp() });
+        return new Spec(getVersion(), getOp());
     }
 
     public SpecToken getType() {
@@ -144,7 +136,7 @@ public class Spec implements Comparable<Spec> {
     }
 
 
-    public SpecPattern getPattern() {
+    public final SpecPattern getPattern() {
         switch (tokens.length) {
             case 4:
                 for (int i = 0; i < tokens.length; i++) {
@@ -168,7 +160,7 @@ public class Spec implements Comparable<Spec> {
         }
     }
 
-    public boolean fits(Spec specFilter) {
+    public final boolean fits(Spec specFilter) {
         for (SpecToken tok : specFilter.tokens) {
             boolean found = false;
             for (SpecToken token : this.tokens) {
@@ -185,30 +177,27 @@ public class Spec implements Comparable<Spec> {
     }
 
     @Override
-    public String toString() {
-        StringBuilder res = new StringBuilder();
-        for (SpecToken token : tokens) {
-            res.append(token.toString());
-        }
-        return res.toString();
+    public final String toString() {
+        return asString;
     }
 
     @Override
-    public boolean equals(Object o) {
+    public final boolean equals(Object o) {
         if (this == o) return true;
+
         if (o == null) return false;
         if (o instanceof String) {
-            return o.equals(this.toString());
+            return o.equals(this.asString);
         }
         if (getClass() != o.getClass()) return false;
 
         Spec spec = (Spec) o;
 
-        return Arrays.equals(this.tokens, spec.tokens);
+        return asString.equals(spec.asString);
     }
 
     @Override
-    public int hashCode() {
+    public final int hashCode() {
         int len = this.tokens.length;
         int result = 0;
         for (SpecQuant q : SpecQuant.values()) {
@@ -222,8 +211,14 @@ public class Spec implements Comparable<Spec> {
     }
 
     @Override
-    public int compareTo(Spec spec) {
-        return spec == null ? 1 : this.toString().compareTo(spec.toString());
+    public final int compareTo(Spec spec) {
+        return spec == null ? 1 : this.asString.compareTo(spec.asString);
+    }
+
+    private static SpecToken[] cloneTokens(SpecToken[] tokens, int count) {
+        SpecToken[] res = new SpecToken[count];
+        System.arraycopy(tokens, 0, res, 0, Math.min(count, tokens.length));
+        return res;
     }
 
     public static SpecToken[] parse(String specAsString) {
@@ -231,16 +226,21 @@ public class Spec implements Comparable<Spec> {
             return new SpecToken[0];
         }
 
-        Matcher matcher = RE_Q_TOK_EXT.matcher(specAsString);
+        Matcher matcher = SpecToken.RE_Q_TOK_EXT.matcher(specAsString);
         List<SpecToken> tokensList = new ArrayList<SpecToken>(4);
         while (matcher.find()) {
-            tokensList.add(new SpecToken(matcher.group(0)));
+            SpecToken tok = new SpecToken(
+                    SpecQuant.byCode(matcher.group(1)),
+                    matcher.group(3),
+                    matcher.group(4)
+            );
+            tokensList.add(tok);
         }
 
         return tokensList.toArray(new SpecToken[tokensList.size()]);
     }
 
-    public static Comparator<Spec> ORDER_NATURAL = new Comparator<Spec>() {
+    public static final Comparator<Spec> ORDER_NATURAL = new Comparator<Spec>() {
 
         @Override
         public int compare(Spec left, Spec right) {
@@ -254,4 +254,6 @@ public class Spec implements Comparable<Spec> {
             }
         }
     };
+
+    public static final Comparator<Spec> ORDER_REVERSE = Collections.reverseOrder(ORDER_NATURAL);
 }

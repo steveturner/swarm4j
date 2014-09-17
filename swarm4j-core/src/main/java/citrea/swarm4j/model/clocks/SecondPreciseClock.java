@@ -16,8 +16,9 @@ import citrea.swarm4j.model.spec.SpecToken;
  */
 public class SecondPreciseClock extends SomePreciseClock {
     public static final int MILLIS_IN_SECOND = 1000;
-    public static final int MAX_SEQ = 1 << (6 * 2);
-    public static final int TIME_PART_LEN = 5;
+    private static final int MAX_SEQ = 1 << (6 * 2);
+    private static final int TIME_PART_LEN = 5;
+    public static final String EMPTY_STRING = "";
 
     /**
      *
@@ -28,7 +29,7 @@ public class SecondPreciseClock extends SomePreciseClock {
      *        to init our time offset; there is no guarantee about
      *        clock correctness on the client side
      */
-    public SecondPreciseClock(String processId, String initialTime) {
+    private SecondPreciseClock(String processId, String initialTime) {
         super(processId, initialTime, TIME_PART_LEN, MILLIS_IN_SECOND);
     }
 
@@ -47,10 +48,10 @@ public class SecondPreciseClock extends SomePreciseClock {
 
     @Override
     protected int parseSequencePart(String seq) {
-        if (!seq.isEmpty() && seq.length() != 2) {
+        if (seq.length() != 0 && seq.length() != 2) {
             throw new IllegalArgumentException("sequence part must be empty or 2 characters length (got: " + seq + ")");
         }
-        return !seq.isEmpty() ? SpecToken.base2int(seq) : 0;
+        return seq.length() != 0 ? SpecToken.base2int(seq) : 0;
     }
 
 }

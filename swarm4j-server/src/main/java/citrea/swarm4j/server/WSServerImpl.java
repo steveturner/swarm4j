@@ -5,7 +5,6 @@ import citrea.swarm4j.model.Syncable;
 import citrea.swarm4j.model.pipe.Pipe;
 import citrea.swarm4j.util.Utils;
 
-import citrea.swarm4j.model.SwarmException;
 import com.eclipsesource.json.JsonValue;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
@@ -14,7 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.util.*;
 
 /**
@@ -29,9 +27,9 @@ public class WSServerImpl extends WebSocketServer {
     private final Utils utils;
 
     private final Host host;
-    private Map<WebSocket, WSWrapper> knownPipes = new HashMap<>();
+    private final Map<WebSocket, WSWrapper> knownPipes = new HashMap<WebSocket, WSWrapper>();
 
-    public WSServerImpl(int port, int decoders, Host host, Utils utils) throws UnknownHostException {
+    public WSServerImpl(int port, int decoders, Host host, Utils utils) {
         super(new InetSocketAddress(port), decoders);
         this.utils = utils;
         this.host = host;
@@ -77,16 +75,12 @@ public class WSServerImpl extends WebSocketServer {
             ws.processMessage(message);
         } catch (Exception e) {
             //send error
-            try {
-                ws.sendMessage(
-                        Pipe.serialize(
-                                host.newEventSpec(Syncable.ERROR),
-                                JsonValue.valueOf("error parsing or generating JSON: " + e.getMessage())
-                        )
-                );
-            } catch (SwarmException e1) {
-                //ignore
-            }
+            ws.sendMessage(
+                    Pipe.serialize(
+                            host.newEventSpec(Syncable.ERROR),
+                            JsonValue.valueOf("error parsing or generating JSON: " + e.getMessage())
+                    )
+            );
             logger.warn("onMessage error errMessage={}", e.getMessage(), e);
         }
     }

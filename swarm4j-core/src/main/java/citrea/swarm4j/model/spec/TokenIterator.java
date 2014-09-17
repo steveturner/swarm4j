@@ -11,8 +11,8 @@ import java.util.Iterator;
  */
 public class TokenIterator implements Iterator<SpecToken> {
 
-    private SpecToken[] tokens;
-    private SpecQuant quant;
+    private final SpecToken[] tokens;
+    private final SpecQuant quant;
     private int index = 0;
 
     public TokenIterator(SpecToken[] tokens, SpecQuant quant) {

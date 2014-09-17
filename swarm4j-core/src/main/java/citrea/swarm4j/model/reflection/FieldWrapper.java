@@ -17,8 +17,7 @@ import java.lang.reflect.Field;
  */
 public class FieldWrapper implements FieldMeta {
 
-    private Field field;
-
+    private final Field field;
 
     public FieldWrapper(Field field) {
         this.field = field;

@@ -13,7 +13,7 @@ import java.util.Map;
  */
 public class OpChannelFactoryRegistry implements OpChannelFactory {
 
-    Map<String, OpChannelFactory> supportedFactories = new HashMap<String, OpChannelFactory>();
+    private final Map<String, OpChannelFactory> supportedFactories = new HashMap<String, OpChannelFactory>();
 
     public void registerFactory(String scheme, OpChannelFactory factory) {
         supportedFactories.put(scheme, factory);

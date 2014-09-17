@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.net.UnknownHostException;
 
 /**
  * Created with IntelliJ IDEA.
@@ -48,7 +47,7 @@ public class SwarmServer {
         host.stop();
     }
 
-    public void start() throws UnknownHostException {
+    public void start() {
         if (host == null) {
             throw new RuntimeException("'host' property not deliver");
         }

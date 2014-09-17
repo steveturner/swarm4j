@@ -24,24 +24,24 @@ import java.util.concurrent.atomic.AtomicInteger;
  *         Time: 15:49
  *
  */
-public class Pipe implements OpChannelListener, OpRecipient, Peer {
-    public static Logger logger = LoggerFactory.getLogger(Pipe.class);
+public final class Pipe implements OpChannelListener, OpRecipient, Peer {
+    private static final Logger logger = LoggerFactory.getLogger(Pipe.class);
 
     private static final AtomicInteger idSeq = new AtomicInteger(0);
 
-    public static final Set<SpecToken> SUBSCRIPTION_OPERATIONS = new HashSet<>(Arrays.asList(
+    public static final Set<SpecToken> SUBSCRIPTION_OPERATIONS = new HashSet<SpecToken>(Arrays.asList(
             Syncable.ON,
             Syncable.REON
     ));
 
     private final int id;
-    protected final Plumber plumber;
-    protected State state;
-    protected long lastRecvTS = -1L;
-    protected long lastSendTS = -1L;
+    final Plumber plumber;
+    State state;
+    long lastReceivedTS = -1L;
+    long lastSendTS = -1L;
 
-    protected HostPeer host;
-    protected URI uri;
+    final HostPeer host;
+    URI uri;
     protected OpChannel channel;
     protected SpecToken peerId;
     protected Boolean isOnSent = null;
@@ -61,7 +61,7 @@ public class Pipe implements OpChannelListener, OpRecipient, Peer {
         if (logger.isDebugEnabled()) {
             logger.debug("{} << {}", this, message);
         }
-        this.lastRecvTS = new Date().getTime();
+        this.lastReceivedTS = new Date().getTime();
         for (Map.Entry<Spec, JsonValue> op : parse(message).entrySet()) {
             switch (state) {
                 case NEW:
@@ -79,6 +79,8 @@ public class Pipe implements OpChannelListener, OpRecipient, Peer {
 
     @Override
     public void onClose(String error) {
+        if (this.channel == null) return;
+
         logger.debug("{}.onClose({})", this, error);
         this.channel.setSink(null);
         this.channel = null;
@@ -127,11 +129,11 @@ public class Pipe implements OpChannelListener, OpRecipient, Peer {
             throw new SelfHandshakeSwarmException(spec, value);
         }
         SpecToken op = spec.getOp();
-        Spec evspec = spec.overrideToken(this.host.getPeerId()).sort();
+        Spec event_spec = spec.overrideToken(this.host.getPeerId()).sort();
 
         if (SUBSCRIPTION_OPERATIONS.contains(op)) { // access denied TODO
             this.setPeerId(spec.getId());
-            this.host.deliver(evspec, value, this);
+            this.host.deliver(event_spec, value, this);
         } else {
             throw new InvalidHandshakeSwarmException(spec, value);
         }
@@ -221,7 +223,7 @@ public class Pipe implements OpChannelListener, OpRecipient, Peer {
     }
 
     //TODO configurable serializer
-    public static String serialize(Spec spec, JsonValue value) throws SwarmException {
+    public static String serialize(Spec spec, JsonValue value) {
         JsonObject payload = new JsonObject();
         payload.set(spec.toString(), value);
         return payload.toString();
@@ -232,10 +234,11 @@ public class Pipe implements OpChannelListener, OpRecipient, Peer {
         JsonObject bundle = JsonObject.readFrom(message);
 
         // sort operations by spec
-        SortedMap<Spec, JsonValue> operations = new TreeMap<>(Spec.ORDER_NATURAL);
-        for (String specStr : bundle.names()) {
+        SortedMap<Spec, JsonValue> operations = new TreeMap<Spec, JsonValue>(Spec.ORDER_NATURAL);
+        for (JsonObject.Member spec_val : bundle) {
+            final String specStr = spec_val.getName();
             final Spec spec = new Spec(specStr);
-            final JsonValue value = bundle.get(specStr);
+            final JsonValue value = spec_val.getValue();
             operations.put(spec, value);
         }
         return operations;

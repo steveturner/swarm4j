@@ -14,7 +14,7 @@ import com.eclipsesource.json.JsonValue;
  */
 public class OpFilter extends FilteringOpRecipient<OpRecipient> {
 
-    private SpecToken op;
+    private final SpecToken op;
 
     public OpFilter(OpRecipient inner, SpecToken op) {
         super(inner);

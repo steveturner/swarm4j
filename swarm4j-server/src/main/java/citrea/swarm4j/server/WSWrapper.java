@@ -44,7 +44,7 @@ public class WSWrapper implements OpChannel {
             logger.debug("{}.processMessage({})", this, message);
             this.sink.onMessage(message);
         } else {
-            logger.info("{}.processMessage({}): no sink, closing websocket", this, message);
+            logger.info("{}.processMessage({}): no sink, closing WebSocket", this, message);
             this.ws.close();
         }
     }

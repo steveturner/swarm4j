@@ -8,6 +8,7 @@ import citrea.swarm4j.model.oplog.ModelLogDistillator;
 import citrea.swarm4j.model.spec.Spec;
 import citrea.swarm4j.model.spec.SpecPattern;
 import citrea.swarm4j.model.spec.SpecToken;
+import citrea.swarm4j.model.value.JSONUtils;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
 
@@ -30,9 +31,9 @@ public class Set<T extends Syncable> extends Syncable {
     public static final JsonValue TRUE = JsonValue.valueOf(1);
     public static final JsonValue FALSE = JsonValue.valueOf(0);
 
-    private Map<Spec, T> objects = new HashMap<>();
-    private OpRecipient proxy = new ObjectProxy();
-    private List<ObjListener> objectListeners = new ArrayList<>();
+    private final Map<Spec, T> objects = new HashMap<Spec, T>();
+    private final OpRecipient proxy = new ObjectProxy();
+    private final List<ObjListener> objectListeners = new ArrayList<ObjListener>();
 
     public Set(SpecToken id, Host host) throws SwarmException {
         super(id, host);
@@ -51,13 +52,15 @@ public class Set<T extends Syncable> extends Syncable {
 
         JsonObject jo = (JsonObject) value;
 
-        for (String keySpecStr : jo.names()) {
+        for (JsonObject.Member entry : jo) {
+            String keySpecStr = entry.getName();
             Spec key_spec = new Spec(keySpecStr);
-            if (TRUE.equals(jo.get(keySpecStr))) {
+            JsonValue val = entry.getValue();
+            if (TRUE.equals(val)) {
                 T obj = this.host.get(key_spec);
                 this.objects.put(key_spec, obj);
                 obj.on(JsonValue.NULL, this.proxy);
-            } else if (FALSE.equals(jo.get(keySpecStr))) {
+            } else if (FALSE.equals(val)) {
                 T obj = this.objects.get(key_spec);
                 if (obj != null) {
                     obj.off(this.proxy);
@@ -71,7 +74,7 @@ public class Set<T extends Syncable> extends Syncable {
 
     // should be generated?
     public void change(JsonObject changes) throws SwarmException {
-        this.change(this.newEventSpec(CHANGE), changes, NOOP);
+        this.deliver(this.newEventSpec(CHANGE), changes, NOOP);
     }
 
     public void onObjects(JsonValue filter, OpRecipient callback) {
@@ -89,9 +92,9 @@ public class Set<T extends Syncable> extends Syncable {
     }
 
     public void onObjectEvent(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
-        Spec specFilter = new Spec(value.asString());
         for(ObjListener entry : this.objectListeners) {
-            if (!entry.filter.isNull() && !spec.fits(specFilter)) {
+            if (!JSONUtils.isFalsy(entry.filter) &&
+                    !spec.fits(new Spec(entry.filter.asString()))) {
                 continue;
             }
             entry.listener.deliver(spec, value, source);
@@ -174,12 +177,13 @@ public class Set<T extends Syncable> extends Syncable {
      * @return sorted list of objects currently in set
      */
     public List<T> list(Comparator<T> order) {
-        List<T> ret = new ArrayList<>();
-        for (T obj : this.objects.values()) {
-            ret.add(obj);
-        }
+        List<T> ret = this.list();
         Collections.sort(ret, order);
         return ret;
+    }
+
+    public List<T> list() {
+        return new ArrayList<T>(this.objects.values());
     }
 
     public class ObjectProxy implements OpRecipient {
@@ -196,8 +200,8 @@ public class Set<T extends Syncable> extends Syncable {
     }
 
     private class ObjListener {
-        JsonValue filter;
-        OpRecipient listener;
+        final JsonValue filter;
+        final OpRecipient listener;
 
         private ObjListener(JsonValue filter, OpRecipient listener) {
             this.filter = filter;

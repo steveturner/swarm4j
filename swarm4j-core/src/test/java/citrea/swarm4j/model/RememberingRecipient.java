@@ -17,7 +17,7 @@ import java.util.List;
  */
 public class RememberingRecipient implements OpRecipient {
 
-    private List<Triplet> memory = new ArrayList<>();
+    private final List<Triplet> memory = new ArrayList<Triplet>();
 
     @Override
     public void deliver(Spec spec, JsonValue value, OpRecipient listener) throws SwarmException {

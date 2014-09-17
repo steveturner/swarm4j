@@ -30,10 +30,10 @@ import java.util.Map;
  */
 public class ReflectionTypeMeta implements TypeMeta {
 
-    private Class<? extends Syncable> type;
-    private SpecToken typeToken;
-    private Map<String, OperationMeta> operations = new HashMap<String, OperationMeta>();
-    private Map<String, FieldMeta> fields = new HashMap<String, FieldMeta>();
+    private final Class<? extends Syncable> type;
+    private final SpecToken typeToken;
+    private final Map<String, OperationMeta> operations = new HashMap<String, OperationMeta>();
+    private final Map<String, FieldMeta> fields = new HashMap<String, FieldMeta>();
 
     public ReflectionTypeMeta(Class<? extends Syncable> type) throws SwarmException {
         this.type = type;

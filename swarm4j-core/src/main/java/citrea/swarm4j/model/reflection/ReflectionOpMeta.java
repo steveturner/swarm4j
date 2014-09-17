@@ -20,9 +20,9 @@ import java.lang.reflect.Method;
  */
 public class ReflectionOpMeta implements OperationMeta {
 
-    private Method method;
-    private SwarmOperationKind kind;
-    private SwarmMethodSignature signature;
+    private final Method method;
+    private final SwarmOperationKind kind;
+    private final SwarmMethodSignature signature;
 
     ReflectionOpMeta(Method method, SwarmOperationKind kind, SwarmMethodSignature signature) {
         this.method = method;

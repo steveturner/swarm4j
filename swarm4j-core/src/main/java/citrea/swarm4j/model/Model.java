@@ -8,6 +8,7 @@ import citrea.swarm4j.model.annotation.SwarmOperationKind;
 import citrea.swarm4j.model.meta.FieldMeta;
 import citrea.swarm4j.model.oplog.ModelLogDistillator;
 import citrea.swarm4j.model.spec.*;
+import citrea.swarm4j.model.value.JSONUtils;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
 
@@ -30,12 +31,12 @@ public class Model extends Syncable {
      * @param id object id
      * @param host swarm host object bound to
      */
-    public Model(SpecToken id, Host host) throws SwarmException {
+    protected Model(SpecToken id, Host host) throws SwarmException {
         super(id, host);
         this.logDistillator = new ModelLogDistillator();
     }
 
-    public Model(JsonValue initialState, Host host) throws SwarmException {
+    protected Model(JsonObject initialState, Host host) throws SwarmException {
         super(null, host);
         this.logDistillator = new ModelLogDistillator();
         this.set(initialState);
@@ -51,7 +52,7 @@ public class Model extends Syncable {
     @Override
     public void on(Spec spec, JsonValue base, OpRecipient source) throws SwarmException {
         //  support the model.on('field',callback_fn) pattern
-        if (!base.isNull() && base.isString()) {
+        if (!JSONUtils.isFalsy(base)) {
             String possibleFieldName = base.asString();
             FieldMeta fieldMeta = getTypeMeta().getFieldMeta(possibleFieldName);
             if (fieldMeta != null) {
@@ -80,7 +81,7 @@ public class Model extends Syncable {
 
     /**
      * This barebones Model class implements just one kind of an op:
-     * set({key:value}). To implment your own ops you need to understand
+     * set({key:value}). To implement your own ops you need to understand
      * implications of partial order as ops may be applied in slightly
      * different orders at different replicas. This implementation
      * may resort to distillLog() to linearize ops.
@@ -101,14 +102,14 @@ public class Model extends Syncable {
     }
 
     // TODO should be generated
-    public void set(JsonValue newFieldValues) throws SwarmException {
-        this.deliver(this.newEventSpec(SET), newFieldValues, OpRecipient.NOOP);
+    public void set(JsonObject fieldValues) throws SwarmException {
+        this.trigger(SET, fieldValues);
     }
 
     public void set(String fieldName, JsonValue value) throws SwarmException {
         JsonObject fieldValues = new JsonObject();
         fieldValues.set(fieldName, value);
-        this.set(fieldValues);
+        this.trigger(SET, fieldValues);
     }
 
     public void fill(String key) throws SwarmException { // TODO goes to Model to support references
@@ -131,12 +132,12 @@ public class Model extends Syncable {
         for (String field : pojo.names()) {
             JsonValue currentFieldValue = this.getFieldValue(field);
             if (!currentFieldValue.equals(cumul.get(field))) {
-                // TODO nesteds
+                // TODO nested
                 changes.set(field, currentFieldValue);
             }
         }
         for (String field : cumul.keySet()) {
-            if (pojo.get(field).isNull()) {
+            if (JSONUtils.isFalsy(pojo.get(field))) {
                 changes.set(field, JsonValue.NULL); // JSON has no undefined
             }
         }
@@ -182,14 +183,5 @@ public class Model extends Syncable {
             return Syncable.addReaction.call(this, 'set', wrapper);
         }
     }*/
-
-    public JsonValue getFieldValue(String fieldName) {
-        //TODO getFieldValue
-        return JsonValue.NULL;
-    }
-
-    public void setFieldValue(String fieldName, JsonValue value) {
-        //TODO setFieldValue
-    }
 
 }

@@ -16,8 +16,8 @@ import com.eclipsesource.json.JsonValue;
  */
 public class PendingUplink extends FilteringOpRecipient<Uplink> implements Uplink {
 
-    private Syncable object;
-    private SpecToken requestedVersion;
+    private final Syncable object;
+    private final SpecToken requestedVersion;
 
     public PendingUplink(Syncable object, Uplink original, SpecToken requestedVersion) {
         super(original);
@@ -26,7 +26,7 @@ public class PendingUplink extends FilteringOpRecipient<Uplink> implements Uplin
     }
 
     @Override
-    protected boolean filter(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+    protected boolean filter(Spec spec, JsonValue value, OpRecipient source) {
         // only response for my request
         return requestedVersion.equals(spec.getVersion());
     }

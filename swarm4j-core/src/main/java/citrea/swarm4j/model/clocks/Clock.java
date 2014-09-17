@@ -2,8 +2,6 @@ package citrea.swarm4j.model.clocks;
 
 import citrea.swarm4j.model.spec.SpecToken;
 
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Date;
 
 /**

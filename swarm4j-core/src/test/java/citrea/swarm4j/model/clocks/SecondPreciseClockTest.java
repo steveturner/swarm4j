@@ -96,7 +96,7 @@ public class SecondPreciseClockTest {
         }
 
         @Override
-        protected long getTimeInMillis() {
+        long getTimeInMillis() {
             return currentTime;
         }
     }

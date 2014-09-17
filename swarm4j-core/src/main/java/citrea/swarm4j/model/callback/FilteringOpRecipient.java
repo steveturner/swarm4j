@@ -13,13 +13,13 @@ import com.eclipsesource.json.JsonValue;
  *         Time: 23:10
  */
 public abstract class FilteringOpRecipient<T extends OpRecipient> implements OpRecipient {
-    protected T inner;
+    protected final T inner;
 
     protected FilteringOpRecipient(T inner) {
         this.inner = inner;
     }
 
-    protected abstract boolean filter(Spec spec, JsonValue value, OpRecipient source) throws SwarmException;
+    protected abstract boolean filter(Spec spec, JsonValue value, OpRecipient source);
 
     protected void deliverInternal(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
         inner.deliver(spec, value, source);

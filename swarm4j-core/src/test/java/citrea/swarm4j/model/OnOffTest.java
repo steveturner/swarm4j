@@ -30,14 +30,13 @@ import static org.junit.Assert.*;
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class OnOffTest {
 
-    public static final Logger logger = LoggerFactory.getLogger(OnOffTest.class);
-    public static final SpecToken SERVER = new SpecToken("#swarm~up");
-    public static final SpecToken CLIENT = new SpecToken("#client");
-    public static final int RECONNECT_TIMEOUT = 10;
+    private static final Logger logger = LoggerFactory.getLogger(OnOffTest.class);
+    private static final SpecToken SERVER = new SpecToken("#swarm~up");
+    private static final SpecToken CLIENT = new SpecToken("#client");
+    private static final int RECONNECT_TIMEOUT = 10;
 
     //TODO cache-storage private Thread cacheStorageThread;
 
-    private XInMemoryStorage dummyStorage;
     //TODO cache-storage private XInMemoryStorage cacheStorage;
 
     private Host server;
@@ -48,29 +47,28 @@ public class OnOffTest {
     @Before
     public void setUp() throws Exception {
 
+        XInMemoryStorage dummyStorage;
         dummyStorage = new XInMemoryStorage(new SpecToken("#dummy"));
+        dummyStorage.setAsync(true);
 
         server = new Host(SERVER, dummyStorage);
+        server.setAsync(true);
         server.registerType(Duck.class);
         server.registerType(Thermometer.class);
         server.start();
-        while (!server.ready()) {
-            Thread.sleep(10);
-        }
-
+        server.waitForStart();
 
         //cacheStorage = new XInMemoryStorage(new SpecToken("#cache"));
         //cacheStorageThread = new Thread(cacheStorage);
         //cacheStorageThread.start();
 
         client = new Host(CLIENT);
+        client.setAsync(true);
         client.registerType(Duck.class);
         client.registerType(Thermometer.class);
         client.registerChannelFactory(LoopbackOpChannelFactory.SCHEME, new LoopbackOpChannelFactory(server));
         client.start();
-        while (!client.ready()) {
-            Thread.sleep(10);
-        }
+        client.waitForStart();
 
         client.connect(new URI(LoopbackOpChannelFactory.SCHEME + "://server"), RECONNECT_TIMEOUT, 0);
     }
@@ -169,7 +167,7 @@ public class OnOffTest {
             public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
                 assertSame(source, client);
                 assertTrue(source instanceof Host);
-                assertFalse(((Host) source).isUplinked());
+                assertFalse(!((Host) source).isNotUplinked());
                 counter.incrementAndGet();
             }
 

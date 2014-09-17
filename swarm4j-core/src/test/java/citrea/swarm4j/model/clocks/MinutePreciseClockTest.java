@@ -12,7 +12,7 @@ public class MinutePreciseClockTest {
     @Test
     public void testIssueTimestamp() throws Exception {
         final long initialTime = 0L;
-        final FakeMinutePreciseClock clock = new FakeMinutePreciseClock(PROCESS_ID, initialTime);
+        final FakeMinutePreciseClock clock = new FakeMinutePreciseClock(initialTime);
         final int last = 5;
         assertEquals(
                 "initialized correctly",
@@ -54,7 +54,7 @@ public class MinutePreciseClockTest {
     @Test
     public void testParseTimestamp() throws Exception {
         final long initialTime = 0L;
-        final FakeMinutePreciseClock clock = new FakeMinutePreciseClock(PROCESS_ID, initialTime);
+        final FakeMinutePreciseClock clock = new FakeMinutePreciseClock(initialTime);
         for (int i = 1; i <= 5; i++) {
             SpecToken ts = new SpecToken(VERSION, "000" + i + "0", PROCESS_ID);
             TimestampParsed tsParsed = clock.parseTimestamp(ts);
@@ -71,7 +71,7 @@ public class MinutePreciseClockTest {
     @Test
     public void testSeeTimestamp() throws Exception {
         final long initialTime = 0L;
-        final FakeMinutePreciseClock clock = new FakeMinutePreciseClock(PROCESS_ID, initialTime);
+        final FakeMinutePreciseClock clock = new FakeMinutePreciseClock(initialTime);
 
         for (int i = 1; i <= 4; i++) {
             clock.seeTimestamp(new SpecToken(VERSION, "000" + (i * 2) + "0", PROCESS_ID));
@@ -96,8 +96,8 @@ public class MinutePreciseClockTest {
 
         private long currentTime = 0L;
 
-        public FakeMinutePreciseClock(String processId, long currentTime) {
-            super(processId);
+        public FakeMinutePreciseClock(long currentTime) {
+            super(MinutePreciseClockTest.PROCESS_ID);
             this.currentTime = currentTime;
         }
 

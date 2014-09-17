@@ -1,7 +1,5 @@
 package citrea.swarm4j.model.hash;
 
-import citrea.swarm4j.model.spec.Spec;
-
 /**
  * Created with IntelliJ IDEA.
  *

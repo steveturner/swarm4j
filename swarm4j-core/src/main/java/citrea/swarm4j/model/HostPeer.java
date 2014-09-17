@@ -27,5 +27,5 @@ public interface HostPeer extends Uplink, ReferringToPeer {
 
     void disconnect(SpecToken peerId) throws SwarmException;
 
-    void disconnect() throws SwarmException;
+    void disconnect();
 }

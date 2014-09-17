@@ -1,7 +1,6 @@
 package citrea.swarm4j.model.callback;
 
 import citrea.swarm4j.model.spec.Spec;
-import citrea.swarm4j.model.spec.SpecToken;
 
 /**
  * Created with IntelliJ IDEA.

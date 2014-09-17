@@ -1,7 +1,6 @@
 package citrea.swarm4j.model.callback;
 
 import citrea.swarm4j.model.spec.Spec;
-import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
 
 
@@ -14,7 +13,7 @@ import com.eclipsesource.json.JsonValue;
  */
 public class FieldChangeOpRecipient extends FilteringOpRecipient<OpRecipient> {
 
-    private String fieldName;
+    private final String fieldName;
 
     public FieldChangeOpRecipient(OpRecipient inner, String fieldName) {
         super(inner);

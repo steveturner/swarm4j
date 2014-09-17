@@ -1,8 +1,6 @@
 package citrea.swarm4j.util;
 
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
 
 /**
  * Created with IntelliJ IDEA.
@@ -13,7 +11,7 @@ import java.util.List;
  */
 public class ChainedIterators<E> implements Iterator<E> {
 
-    private Iterator<? extends E>[] iterators;
+    private final Iterator<? extends E>[] iterators;
     private int current = 0;
 
     public ChainedIterators(Iterator<? extends E>... iterators) {

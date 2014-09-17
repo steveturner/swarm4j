@@ -14,9 +14,9 @@ import com.eclipsesource.json.JsonValue;
  */
 public class QueuedOperation {
 
-    private OpRecipient peer;
-    private Spec spec;
-    private JsonValue value;
+    private final OpRecipient peer;
+    private final Spec spec;
+    private final JsonValue value;
 
     public QueuedOperation(Spec spec, JsonValue value, OpRecipient peer) {
         this.spec = spec;

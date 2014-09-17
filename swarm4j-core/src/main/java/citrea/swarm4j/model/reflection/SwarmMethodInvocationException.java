@@ -1,9 +1,6 @@
 package citrea.swarm4j.model.reflection;
 
 import citrea.swarm4j.model.SwarmException;
-import citrea.swarm4j.model.Syncable;
-
-import java.lang.reflect.Method;
 
 /**
  * Created with IntelliJ IDEA.

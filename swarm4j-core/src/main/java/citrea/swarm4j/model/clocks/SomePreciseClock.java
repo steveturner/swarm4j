@@ -15,12 +15,12 @@ import static citrea.swarm4j.model.spec.SpecQuant.VERSION;
  */
 public abstract class SomePreciseClock extends AbstractClock {
 
-    protected final int preciseInMillis;
+    private final int preciseInMillis;
 
-    protected long clockOffsetMs;
+    private long clockOffsetMs;
 
     protected SomePreciseClock(String processId, String initialTime, int timePartLen, int preciseInMillis) {
-        super(processId, initialTime, timePartLen);
+        super(processId, timePartLen);
         this.preciseInMillis = preciseInMillis;
 
         // sometimes we assume our local clock has some offset
@@ -60,11 +60,11 @@ public abstract class SomePreciseClock extends AbstractClock {
         return new Date(millis);
     }
 
-    protected int getApproximateTime() {
+    protected final int getApproximateTime() {
         return (int) getTimeInMillis() / preciseInMillis;
     }
 
-    protected long getTimeInMillis() {
+    long getTimeInMillis() {
         long millis = System.currentTimeMillis();
         millis -= EPOCH;
         millis += this.clockOffsetMs;

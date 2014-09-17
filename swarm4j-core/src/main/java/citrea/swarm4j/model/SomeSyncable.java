@@ -11,7 +11,7 @@ import citrea.swarm4j.model.spec.SpecToken;
  *         Date: 02.09.2014
  *         Time: 16:27
  */
-public interface SomeSyncable extends ReferringToPeer, OpRecipient {
+interface SomeSyncable extends ReferringToPeer, OpRecipient {
 
     Spec getTypeId();
 

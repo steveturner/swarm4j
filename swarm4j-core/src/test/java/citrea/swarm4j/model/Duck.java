@@ -7,6 +7,7 @@ import citrea.swarm4j.model.annotation.SwarmType;
 import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.spec.Spec;
 import citrea.swarm4j.model.spec.SpecToken;
+import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
 
 /**
@@ -19,7 +20,7 @@ import com.eclipsesource.json.JsonValue;
 @SwarmType("Duck")
 public class Duck extends Model {
 
-    public static final SpecToken GROW = new SpecToken(".grow");
+    private static final SpecToken GROW = new SpecToken(".grow");
 
     @SwarmField()
     public Integer age;
@@ -38,7 +39,7 @@ public class Duck extends Model {
         super(id, host);
     }
 
-    public Duck(JsonValue initialState, Host host2) throws SwarmException {
+    public Duck(JsonObject initialState, Host host2) throws SwarmException {
         super(initialState, host2);
     }
 

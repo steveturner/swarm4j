@@ -1,12 +1,12 @@
 package citrea.swarm4j.model.oplog;
 
 import citrea.swarm4j.model.spec.Spec;
+import citrea.swarm4j.model.value.JSONUtils;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
 
 
 import java.util.*;
-import java.util.Set;
 
 /**
  * Created with IntelliJ IDEA.
@@ -19,7 +19,7 @@ public class ModelLogDistillator implements LogDistillator {
 
     /**
      * Removes redundant information from the log; as we carry a copy
-     * of the log in every replica we do everythin to obtain the minimal
+     * of the log in every replica we do everything to obtain the minimal
      * necessary subset of it.
      * As a side effect, distillLog allows up to handle some partial
      * order issues (see _ops.set).
@@ -29,37 +29,43 @@ public class ModelLogDistillator implements LogDistillator {
     @Override
     public Map<String, JsonValue> distillLog(Map<Spec, JsonValue> oplog) {
         // explain
-        Map<String, JsonValue> cumul = new HashMap<>();
-        Map<String, Boolean> heads = new HashMap<>();
-        List<Spec> sets = new ArrayList<>(oplog.keySet());
-        Collections.sort(sets);
-        Collections.reverse(sets);
+        final Map<String, JsonValue> cumul = new HashMap<String, JsonValue>();
+        final Set<String> heads = new HashSet<String>();
+        final Set<String> fieldsToRemove = new HashSet<String>(10);
+        List<Spec> sets = new ArrayList<Spec>(oplog.keySet());
+        Collections.sort(sets, Spec.ORDER_REVERSE);
         for (Spec spec : sets) {
             JsonValue jsonVal = oplog.get(spec);
-            if (!(jsonVal instanceof JsonObject)) continue;
+            if (jsonVal == null || !jsonVal.isObject()) continue;
 
             JsonObject jo = (JsonObject) jsonVal;
-            boolean notempty = false;
-            Set<String> fieldsToRemove = new HashSet<>();
-            for (String field : jo.names()) {
+            boolean notEmpty = false;
+            fieldsToRemove.clear();
+            for (JsonObject.Member pair : jo) {
+                final String field = pair.getName();
                 if (cumul.containsKey(field)) {
                     fieldsToRemove.add(field);
                 } else {
-                    JsonValue fieldVal = jo.get(field);
+                    JsonValue fieldVal = pair.getValue();
                     cumul.put(field, fieldVal);
-                    notempty = !fieldVal.isNull(); //store last value of the field
+                    notEmpty = !JSONUtils.isFalsy(fieldVal); //store last value of the field
                 }
             }
-            for (String field : fieldsToRemove) {
-                jo.remove(field);
+            if (!fieldsToRemove.isEmpty()) {
+                // clone
+                jo = JsonObject.readFrom(jo.toString());
+                for (String field : fieldsToRemove) {
+                    jo.remove(field);
+                }
+                oplog.put(spec, jo);
             }
             String source = spec.getVersion().getExt();
-            if (!notempty) {
-                if (heads.containsKey(source)) {
+            if (!notEmpty) {
+                if (heads.contains(source)) {
                     oplog.remove(spec);
                 }
             }
-            heads.put(source, true);
+            heads.add(source);
         }
         return cumul;
     }

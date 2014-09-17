@@ -1,7 +1,6 @@
 package citrea.swarm4j.model.callback;
 
 import citrea.swarm4j.model.ReferringToPeer;
-import citrea.swarm4j.model.SomeSyncable;
 import citrea.swarm4j.model.spec.SpecToken;
 
 /**

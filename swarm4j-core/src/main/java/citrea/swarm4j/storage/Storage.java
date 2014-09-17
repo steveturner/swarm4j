@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -29,19 +30,25 @@ import java.util.concurrent.LinkedBlockingQueue;
  */
 public abstract class Storage implements Peer, Runnable {
 
-    protected Logger logger = LoggerFactory.getLogger(Storage.class);
+    protected final Logger logger = LoggerFactory.getLogger(Storage.class);
 
-    public final BlockingQueue<QueuedOperation> queue = new LinkedBlockingQueue<>();
+    public final BlockingQueue<QueuedOperation> queue = new LinkedBlockingQueue<QueuedOperation>();
     private Thread queueThread;
+    private final CountDownLatch started = new CountDownLatch(1);
 
     protected Host host;
-    protected Clock clock;
+    protected final Clock clock;
     protected SpecToken id;
+    private boolean async = false;
 
     protected Storage(SpecToken id) {
         this.id = id;
         // TODO allow to setup clock
         this.clock = new SecondPreciseClock(id.getBare());
+    }
+
+    public void setAsync(boolean async) {
+        this.async = async;
     }
 
     public void setHost(Host host) {
@@ -64,7 +71,7 @@ public abstract class Storage implements Peer, Runnable {
 
     @Override
     public void deliver(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
-        if (queueThread != Thread.currentThread()) {
+        if (queueThread != null && queueThread != Thread.currentThread()) {
             // queue
             try {
                 queue.put(new QueuedOperation(spec, value, source));
@@ -100,7 +107,7 @@ public abstract class Storage implements Peer, Runnable {
         this.appendToLog(ti, o);
     }
 
-    protected abstract void appendToLog(Spec ti, JsonObject verop2val) throws SwarmException;
+    protected abstract void appendToLog(Spec ti, JsonObject ver_op2val) throws SwarmException;
 
     /**
      * Derive version vector from a state of a Syncable object.
@@ -111,21 +118,21 @@ public abstract class Storage implements Peer, Runnable {
      */
     public static String stateVersionVector(JsonObject state) {
         StringBuilder str = new StringBuilder();
-        JsonValue version = state.get("_version");
+        JsonValue version = state.get(Syncable.VERSION_FIELD);
         if (!version.isNull()) {
             str.append(version.asString());
         }
-        JsonValue vector = state.get("_vector");
+        JsonValue vector = state.get(Syncable.VECTOR_FIELD);
         if (vector != null && vector.isString()) {
             str.append(version.asString());
         }
-        JsonValue oplog = state.get("_oplog");
+        JsonValue oplog = state.get(Syncable.OPLOG_FIELD);
         if (oplog != null && oplog.isObject()) {
             for (String spec : oplog.asObject().names()) {
                 str.append(spec);
             }
         }
-        JsonValue tail = state.get("_tail");
+        JsonValue tail = state.get(Syncable.TAIL_FIELD);
         if (tail != null && tail.isObject()) {
             for (String spec : tail.asObject().names()) {
                 str.append(spec);
@@ -144,8 +151,8 @@ public abstract class Storage implements Peer, Runnable {
         this.id = id;
     }
 
-    public synchronized boolean ready() {
-        return queueThread != null;
+    public void waitForStart() throws InterruptedException {
+        this.started.await();
     }
 
     @Override
@@ -158,6 +165,7 @@ public abstract class Storage implements Peer, Runnable {
         }
 
         logger.info("started");
+        this.started.countDown();
         try {
             while (!queueThread.isInterrupted()) {
                 QueuedOperation op = queue.take();
@@ -178,8 +186,11 @@ public abstract class Storage implements Peer, Runnable {
 
     public void start() {
         logger.info("{}.start()", this);
-        new Thread(this, "Stor" + this.getPeerId().toString())
-                .start();
+        if (this.async) {
+            new Thread(this, "S" + this.getPeerId().toString()).start();
+        } else {
+            started.countDown();
+        }
     }
 
     @Override

@@ -17,13 +17,13 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class LoopbackConnection implements ConnectableOpChannel {
 
-    private static AtomicInteger seq = new AtomicInteger(0);
+    private static final AtomicInteger seq = new AtomicInteger(0);
 
     private static final Logger logger = LoggerFactory.getLogger(LoopbackConnection.class);
 
     private final int id;
-    private Host uplink;
-    private LoopbackConnection paired;
+    private final Host uplink;
+    private final LoopbackConnection paired;
     private OpChannelListener sink;
     private boolean opened;
 
@@ -33,8 +33,9 @@ public class LoopbackConnection implements ConnectableOpChannel {
         this.paired = new LoopbackConnection(this);
     }
 
-    public LoopbackConnection(LoopbackConnection paired) {
+    private LoopbackConnection(LoopbackConnection paired) {
         this.id = paired.id;
+        this.uplink = null;
         this.paired = paired;
     }
 

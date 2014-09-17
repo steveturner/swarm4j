@@ -16,10 +16,10 @@ import static citrea.swarm4j.model.spec.SpecQuant.VERSION;
  */
 public class LamportClock extends AbstractClock {
 
-    public static final int SEQUENCE_PART_LENGTH = 5;
+    private static final int SEQUENCE_PART_LENGTH = 5;
 
     public LamportClock(String processId, String initialTime) {
-        super(processId, initialTime, 0);
+        super(processId, 0);
 
         SpecToken specToken = new SpecToken(SpecQuant.VERSION, initialTime, processId);
         // sometimes we assume our local clock has some offset

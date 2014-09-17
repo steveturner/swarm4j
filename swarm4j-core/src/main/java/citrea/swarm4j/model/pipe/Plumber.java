@@ -5,7 +5,6 @@ import citrea.swarm4j.model.spec.SpecToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Date;
 import java.util.concurrent.DelayQueue;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.TimeUnit;
@@ -19,12 +18,12 @@ import java.util.concurrent.TimeUnit;
  */
 public final class Plumber implements Runnable {
 
-    protected Logger logger = LoggerFactory.getLogger(getClass());
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
     private static final long keepAliveTimeout = 60000L;
 
     private Thread queueThread;
-    final DelayQueue<Event> events = new DelayQueue<Event>();
+    private final DelayQueue<Event> events = new DelayQueue<Event>();
 
     public void start(SpecToken hostId) {
         new Thread(this, "Plumber" + hostId).start();
@@ -80,8 +79,8 @@ public final class Plumber implements Runnable {
     }
 
     private abstract class Event implements Delayed {
-        protected Pipe pipe;
-        protected long time;
+        final Pipe pipe;
+        final long time;
 
         public Event(Pipe pipe, long time) {
             this.pipe = pipe;
@@ -125,13 +124,13 @@ public final class Plumber implements Runnable {
                 return;
             }
             long now = System.currentTimeMillis();
-            long sinceRecv = now - pipe.lastRecvTS;
+            long sinceReceived = now - pipe.lastReceivedTS;
             long sinceSend = now - pipe.lastSendTS;
 
             if (sinceSend > keepAliveTimeout >> 1) {
                 pipe.sendMessage("{}");
             }
-            if (sinceRecv > keepAliveTimeout) {
+            if (sinceReceived > keepAliveTimeout) {
                 pipe.close("channel timeout");
             }
             pipe.plumber.keepAlive(pipe);

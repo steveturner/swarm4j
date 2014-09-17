@@ -2,8 +2,8 @@ package citrea.swarm4j.model.spec;
 
 import java.util.Comparator;
 import java.util.Date;
-import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * One token id from specifier.
@@ -18,15 +18,23 @@ import java.util.regex.Matcher;
 public class SpecToken implements Comparable<SpecToken> {
 
     public static final String RS_TOK = "[0-9A-Za-z_~]+";
+    public static final String RS_Q_TOK_EXT = ("([$])((=)(?:\\+(=))?)")
+            .replaceAll("\\$", SpecQuant.allCodes)
+            .replaceAll("=", RS_TOK);
+    public static final Pattern RE_Q_TOK_EXT = Pattern.compile(RS_Q_TOK_EXT);
     public static final String RS_TOK_EXT = "^(=)(?:\\+(=))?$".replaceAll("=", RS_TOK);
     public static final String NO_AUTHOR = "swarm";
 
     public static final long EPOCH = 1262275200000L; // 1 Jan 2010 (milliseconds)
     public static final SpecToken ZERO_VERSION = new SpecToken("!0");
     public static final SpecToken NO_ID = new SpecToken("#NO_ID");
+    public static final SpecToken NO_TYPE = new SpecToken("/NOT_INITED");
+    public static final String BASE64 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~";
+    public static final String RS_BASE64 = "[0-9A-Za-z_~]";
+    public static final Pattern RE_BASE64 = Pattern.compile(RS_BASE64);
 
     // "bare+ext"
-    private String str;
+    private final String str;
     private boolean parsed;
 
     // parsed parts
@@ -35,6 +43,7 @@ public class SpecToken implements Comparable<SpecToken> {
     private String ext;
 
     public SpecToken(String tokenAsString) {
+        // TODO ??? validate format
         this.str = tokenAsString;
         this.parsed = false;
     }
@@ -85,7 +94,7 @@ public class SpecToken implements Comparable<SpecToken> {
         // (2)
         String ret = "";
         while (i != 0) {
-            ret = Spec.BASE64.charAt(i & 63) + ret;
+            ret = BASE64.charAt(i & 63) + ret;
             i >>= 6;
         }
         if (padlen == null) {
@@ -98,7 +107,7 @@ public class SpecToken implements Comparable<SpecToken> {
     }
 
     public static int base2int(String token) {
-        Matcher m = Spec.RE_BASE64.matcher(token);
+        Matcher m = RE_BASE64.matcher(token);
         if (!m.find()) {
             throw new IllegalArgumentException("Not a base64 token");
         }
@@ -106,7 +115,7 @@ public class SpecToken implements Comparable<SpecToken> {
         int ret = 0;
         int shift = (token.length() - 1) * 6;
         do {
-            int idx = Spec.BASE64.indexOf(m.group());
+            int idx = BASE64.indexOf(m.group());
             ret += idx << shift;
             shift -= 6;
         } while (m.find());
@@ -199,7 +208,7 @@ public class SpecToken implements Comparable<SpecToken> {
         }
     }
 
-    public static Comparator<SpecToken> ORDER_BY_QUANT = new Comparator<SpecToken>() {
+    public static final Comparator<SpecToken> ORDER_BY_QUANT = new Comparator<SpecToken>() {
 
         @Override
         public int compare(SpecToken left, SpecToken right) {

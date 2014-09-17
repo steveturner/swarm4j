@@ -9,7 +9,7 @@ import citrea.swarm4j.model.spec.SpecToken;
  *         Date: 05.09.2014
  *         Time: 01:56
  */
-public class Nest extends Set<Duck> {
+class Nest extends Set<Duck> {
 
     public Nest(SpecToken id, Host host) throws SwarmException {
         super(id, host);

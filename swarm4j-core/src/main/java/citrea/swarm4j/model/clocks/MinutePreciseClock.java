@@ -19,7 +19,7 @@ import citrea.swarm4j.model.spec.SpecToken;
  */
 public class MinutePreciseClock extends SomePreciseClock {
     public static final int MILLIS_IN_MINUTE = 1000 * 60;
-    public static final int MAX_SEQ = 1 << (6 * 3);
+    private static final int MAX_SEQ = 1 << (6 * 3);
 
     public MinutePreciseClock(String processId, String initialTime) {
         super(processId, initialTime, 4, MILLIS_IN_MINUTE);

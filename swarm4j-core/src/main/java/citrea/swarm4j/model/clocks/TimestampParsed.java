@@ -8,8 +8,8 @@ package citrea.swarm4j.model.clocks;
  *         Time: 16:59
  */
 public class TimestampParsed {
-    int time;
-    int seq;
+    final int time;
+    final int seq;
 
     public TimestampParsed(int time, int seq) {
         this.time = time;

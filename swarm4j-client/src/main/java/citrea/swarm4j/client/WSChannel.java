@@ -4,13 +4,14 @@ import citrea.swarm4j.model.SwarmException;
 import citrea.swarm4j.model.pipe.ConnectableOpChannel;
 import citrea.swarm4j.model.pipe.OpChannelListener;
 import org.java_websocket.client.WebSocketClient;
+import org.java_websocket.drafts.Draft_10;
 import org.java_websocket.framing.CloseFrame;
 import org.java_websocket.handshake.ServerHandshake;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
-import java.util.ArrayDeque;
+import java.util.LinkedList;
 import java.util.Queue;
 
 /**
@@ -23,7 +24,7 @@ import java.util.Queue;
 public class WSChannel implements ConnectableOpChannel {
     private final Logger logger = LoggerFactory.getLogger(WSChannel.class);
 
-    private final Queue<String> buffer = new ArrayDeque<>();
+    private final Queue<String> buffer = new LinkedList<String>();
     private final URI uri;
     private boolean open;
     private OpChannelListener sink;
@@ -50,10 +51,10 @@ public class WSChannel implements ConnectableOpChannel {
 
     @Override
     public void connect() {
-        this.ws = new WebSocketClient(this.uri) {
+        this.ws = new WebSocketClient(this.uri, new Draft_10(), null, 3000) {
             @Override
-            public void onOpen(ServerHandshake handshakedata) {
-                WSChannel.this.onOpen(handshakedata);
+            public void onOpen(ServerHandshake handshakeData) {
+                WSChannel.this.onOpen(handshakeData);
             }
 
             @Override
@@ -71,6 +72,7 @@ public class WSChannel implements ConnectableOpChannel {
                 WSChannel.this.onError(ex);
             }
         };
+        this.ws.connect();
     }
 
     @Override
@@ -78,8 +80,8 @@ public class WSChannel implements ConnectableOpChannel {
         this.ws.close();
     }
 
-    public synchronized void onOpen(ServerHandshake handshakedata) {
-        logger.debug("{}.onOpen({}, {})", handshakedata.getHttpStatus(), handshakedata.getHttpStatusMessage());
+    public synchronized void onOpen(ServerHandshake handshakeData) {
+        logger.debug("{}.onOpen({}, {})", handshakeData.getHttpStatus(), handshakeData.getHttpStatusMessage());
         while (!buffer.isEmpty()) {
             ws.send(buffer.poll());
         }
@@ -87,6 +89,8 @@ public class WSChannel implements ConnectableOpChannel {
     }
 
     public void onMessage(String message) {
+        if (this.sink == null) return;
+
         logger.debug("{}.onMessage({})", this, message);
         try {
             this.sink.onMessage(message);
@@ -97,17 +101,19 @@ public class WSChannel implements ConnectableOpChannel {
     }
 
     public void onClose(int code, String reason, boolean remote) {
+        if (sink == null) return;
+
         logger.debug("{}.onClose({}, {})", code, reason);
         if (CloseFrame.NORMAL == code) {
-            this.sink.onClose(null);
+            sink.onClose(null);
         } else {
-            this.sink.onClose(reason);
+            sink.onClose(reason);
         }
     }
 
     public void onError(Exception ex) {
         logger.warn("{}.onError({})", this, ex.getMessage(), ex);
-        this.sink.onClose(ex.getMessage());
+        //wait for onClose: this.sink.onClose(ex.getMessage());
     }
 
     @Override

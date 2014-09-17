@@ -1,17 +1,14 @@
 package citrea.swarm4j.model.clocks;
 
-import citrea.swarm4j.model.spec.SpecQuant;
 import citrea.swarm4j.model.spec.SpecToken;
 import org.junit.Test;
-
-import java.util.Arrays;
 
 import static citrea.swarm4j.model.spec.SpecQuant.VERSION;
 import static org.junit.Assert.*;
 
 public class LamportClockTest {
-    public static final String PROCESS_ID = "swarm~0";
-    public static final String ZERO_TIME = "00000";
+    private static final String PROCESS_ID = "swarm~0";
+    private static final String ZERO_TIME = "00000";
 
     @Test
     public void testIssueTimestamp() throws Exception {

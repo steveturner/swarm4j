@@ -23,11 +23,6 @@ public class VersionVectorTest {
     }
 
     @Test
-    public void testAdd1() throws Exception {
-
-    }
-
-    @Test
     public void testCovers() throws Exception {
         // the convention is: use "!version" for vectors and
         // simply "version" for scalars

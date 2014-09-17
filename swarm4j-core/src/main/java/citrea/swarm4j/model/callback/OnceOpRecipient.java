@@ -15,7 +15,7 @@ import com.eclipsesource.json.JsonValue;
  */
 public class OnceOpRecipient extends FilteringOpRecipient<OpRecipient> {
 
-    private Syncable obj;
+    private final Syncable obj;
 
     public OnceOpRecipient(Syncable obj, OpRecipient inner) {
         super(inner);
@@ -23,7 +23,7 @@ public class OnceOpRecipient extends FilteringOpRecipient<OpRecipient> {
     }
 
     @Override
-    protected boolean filter(Spec spec, JsonValue value, OpRecipient source) throws SwarmException {
+    protected boolean filter(Spec spec, JsonValue value, OpRecipient source) {
         return true;
     }
 
