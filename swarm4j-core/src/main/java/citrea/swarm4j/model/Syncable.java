@@ -32,7 +32,6 @@ import static citrea.swarm4j.model.spec.VersionVectorSpec.ZERO_VERSION_VECTOR;
 public abstract class Syncable implements SomeSyncable, SubscriptionAware {
 
     public static final OpToken INIT = new OpToken(".init");
-    public static final OpToken PATCH = new OpToken(".patch");
     public static final OpToken ERROR = new OpToken(".error");
 
     public static final String ID_FIELD = "_id";
@@ -140,7 +139,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
                     opMeta.invoke(this, spec, value, source);
 
                     // once applied, may remember in the log...
-                    if (PATCH.equals(op)) {
+                    if (INIT.equals(op)) {
                         if (!this.oplog.isEmpty()) {
                             this.oplog.put(spec.getVersionOp(), value);
                         }
@@ -308,8 +307,6 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
      * Model uses its distilled log to transfer state (no snapshots).
      */
     JsonObject diff(VersionVectorSpec base) {
-        //var vid = new Spec(this.version).get('!'); // first !token
-        //var spec = vid + '.patch';
         this.distillLog(); // TODO optimize?
         JsonObject patch = new JsonObject();
         if (!base.isEmpty() && !ZERO_VERSION_VECTOR.equals(base)) {
@@ -343,7 +340,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
      * whether the update source (author) has all the rights necessary
      * @return {boolean}
      */
-    protected boolean acl(Spec spec, JsonValue val, OpRecipient src) {
+    protected boolean acl(FullSpec spec, JsonValue val, OpRecipient src) {
         return true;
     }
 
@@ -418,7 +415,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
             if (filter_by_op != null) {
                 if (INIT.equals(filter_by_op)) {
                     JsonValue diff_if_needed = baseVersion != null ? this.diff(baseVersion) : JsonValue.NULL;
-                    source.deliver(spec.overrideOp(PATCH), diff_if_needed, this);
+                    source.deliver(spec.overrideOp(INIT), diff_if_needed, this);
                     // use once()
                     return;
                 }
@@ -429,7 +426,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
             if (baseVersion != null) {
                 JsonObject diff = this.diff(baseVersion);
                 if (!diff.isEmpty()) {
-                    source.deliver(spec.overrideOp(PATCH), diff, this); // 2downlink
+                    source.deliver(spec.overrideOp(INIT), diff, this); // 2downlink
                 }
                 source.deliver(spec.overrideOp(REON), JsonValue.valueOf(this.version().toString()), this);
             }
@@ -456,7 +453,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
         JsonObject diff = this.diff(new VersionVectorSpec(Spec.parse(base.asString())));
         if (diff.isEmpty()) return;
 
-        source.deliver(spec.overrideOp(PATCH), diff, this); // 2uplink
+        source.deliver(spec.overrideOp(INIT), diff, this); // 2uplink
     }
 
     /** Unsubscribe */
@@ -508,7 +505,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
      * @param source source of operation
      */
     @SwarmOperation(kind = SwarmOperationKind.Logged)
-    public void patch(FullSpec spec, JsonValue state, OpRecipient source) throws SwarmException {
+    public void init(FullSpec spec, JsonValue state, OpRecipient source) throws SwarmException {
         Map<String, JsonValue> tail = new HashMap<String, JsonValue>();
         final TypeIdSpec typeid = spec.getTypeId();
         List<Uplink> uplinksBak = this.uplinks;

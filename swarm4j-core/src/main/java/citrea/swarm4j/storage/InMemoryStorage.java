@@ -69,7 +69,7 @@ public class InMemoryStorage extends Storage {
     }
 
     @Override
-    public void patch(FullSpec spec, JsonValue patch) throws SwarmException {
+    public void init(FullSpec spec, JsonValue patch) throws SwarmException {
         this.writeState(spec, patch);
     }
 
@@ -115,7 +115,7 @@ public class InMemoryStorage extends Storage {
             state.set(Syncable.TAIL_FIELD, stateTail);
         }
         VersionToken version = spec.getVersion();
-        source.deliver(ti.fullSpec(version, Syncable.PATCH), state, this);
+        source.deliver(ti.fullSpec(version, Syncable.INIT), state, this);
         source.deliver(ti.fullSpec(version, Syncable.REON), JsonValue.valueOf(Storage.stateVersionVector(state)), this);
     }
 

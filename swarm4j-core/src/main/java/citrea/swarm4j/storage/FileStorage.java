@@ -31,7 +31,7 @@ import java.util.regex.Pattern;
  *
  * v load:   preload existing log chunks
  *   on:     load state, add tail, send, reon base=????
- *   patch:  state=> save state; log=> append
+ *   init:   state=> save state; log=> append
  *   op:     append
  *   unload: may flush all states
  * v onflush:new flush
@@ -146,7 +146,7 @@ public class FileStorage extends Storage {
     }
 
     @Override
-    public void patch(FullSpec spec, JsonValue patchVal) throws SwarmException {
+    public void init(FullSpec spec, JsonValue patchVal) throws SwarmException {
         if (!(patchVal instanceof JsonObject)) return;
         JsonObject patch = (JsonObject) patchVal;
         TypeIdSpec ti = spec.getTypeId();
@@ -289,7 +289,7 @@ public class FileStorage extends Storage {
         }
 
         VersionToken version = spec.getVersion();
-        replica.deliver(ti.fullSpec(version, Syncable.PATCH), state, this);
+        replica.deliver(ti.fullSpec(version, Syncable.INIT), state, this);
         String versionVector = Storage.stateVersionVector(state);
         replica.deliver(ti.fullSpec(version, Syncable.REON), JsonValue.valueOf(versionVector), this);
     }

@@ -83,8 +83,8 @@ public abstract class Storage implements Peer, Runnable {
                 this.on(spec, value, source);
             } else if (Syncable.OFF.equals(op)) {
                 this.off(spec, source);
-            } else if (Syncable.PATCH.equals(op)) {
-                this.patch(spec, value);
+            } else if (Syncable.INIT.equals(op)) {
+                this.init(spec, value);
             } else {
                 this.op(spec, value, source);
             }
@@ -95,7 +95,7 @@ public abstract class Storage implements Peer, Runnable {
 
     protected abstract void off(FullSpec spec, OpRecipient source) throws SwarmException;
 
-    protected abstract void patch(FullSpec spec, JsonValue patch) throws SwarmException;
+    protected abstract void init(FullSpec spec, JsonValue patch) throws SwarmException;
 
     public void op(FullSpec spec, JsonValue val, OpRecipient source) throws SwarmException {
         TypeIdSpec ti = spec.getTypeId();
