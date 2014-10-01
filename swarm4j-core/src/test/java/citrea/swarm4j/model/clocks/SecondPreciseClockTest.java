@@ -4,6 +4,8 @@ import citrea.swarm4j.model.spec.VersionToken;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class SecondPreciseClockTest {
 
@@ -59,24 +61,16 @@ public class SecondPreciseClockTest {
     }
 
     @Test
-    public void testSeeTimestamp() throws Exception {
+    public void testCheckTimestamp() throws Exception {
         final long initialTime = 0L;
         final FakeSecondPreciseClock clock = new FakeSecondPreciseClock(PROCESS_ID, initialTime);
 
         for (int i = 1; i <= 4; i++) {
-            clock.seeTimestamp(new VersionToken("0000" + (i * 2), PROCESS_ID));
-            assertEquals(
-                    "see("+i+")",
-                    new VersionToken("0000" + (i * 2) + "01", PROCESS_ID),
-                    clock.issueTimestamp()
-            );
-
-            clock.seeTimestamp(new VersionToken("0000" + (i * 2) + "02", PROCESS_ID));
-            assertEquals(
-                    "see(" + i + ")",
-                    new VersionToken("0000" + (i * 2) + "03", PROCESS_ID),
-                    clock.issueTimestamp()
-            );
+            clock.tick();
+            clock.issueTimestamp();
+            assertTrue(clock.checkTimestamp(new VersionToken("0000" + i, PROCESS_ID)));
+            assertTrue(clock.checkTimestamp(new VersionToken("0000" + i + "02", PROCESS_ID)));
+            assertFalse(clock.checkTimestamp(new VersionToken("0000" + (i+2) + "02", PROCESS_ID)));
         }
 
     }
@@ -95,7 +89,7 @@ public class SecondPreciseClockTest {
         }
 
         @Override
-        long getTimeInMillis() {
+        public long getTimeInMillis() {
             return currentTime;
         }
     }

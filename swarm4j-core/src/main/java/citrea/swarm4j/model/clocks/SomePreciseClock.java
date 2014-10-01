@@ -2,6 +2,8 @@ package citrea.swarm4j.model.clocks;
 
 import citrea.swarm4j.model.spec.SToken;
 import citrea.swarm4j.model.spec.VersionToken;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Date;
 
@@ -14,9 +16,9 @@ import java.util.Date;
  */
 public abstract class SomePreciseClock extends AbstractClock {
 
-    private final int preciseInMillis;
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private long clockOffsetMs;
+    private final int preciseInMillis;
 
     protected SomePreciseClock(String processId, String initialTime, int timePartLen, int preciseInMillis) {
         super(processId, timePartLen);
@@ -35,7 +37,6 @@ public abstract class SomePreciseClock extends AbstractClock {
         }
         this.lastIssuedTimestamp = new VersionToken(initialTime, id);
         this.clockOffsetMs = parseTimestamp(this.lastIssuedTimestamp).time - this.getTimeInMillis();
-        this.seeTimestamp(this.lastIssuedTimestamp);
     }
 
     @Override
@@ -59,14 +60,44 @@ public abstract class SomePreciseClock extends AbstractClock {
         return new Date(millis);
     }
 
+    /**
+     * Freshly issued timestamps must be greater than
+     * any timestamps previously seen.
+     */
+    @Override
+    public boolean checkTimestamp(VersionToken ts) {
+        if (ts.compareTo(this.lastIssuedTimestamp) < 0) {
+            return true;
+        }
+        TimestampParsed parsed = this.parseTimestamp(ts);
+        if (parsed.time < this.lastTimeSeen) {
+            return true;
+        }
+        int approxTime = this.getApproximateTime();
+        if (parsed.time > approxTime + 1) {
+            return false; // back to the future
+        }
+        this.lastTimeSeen = parsed.time;
+        this.lastSeqSeen = parsed.seq;
+        return true;
+    }
+
+    @Override
+    public void adjustTime(long timeInMillis) {
+        // TODO use min historical offset
+        this.clockOffsetMs = timeInMillis - this.getTimeInMillis();
+        int lastTS = this.lastTimeSeen;
+        this.lastTimeSeen = 0;
+        this.lastSeqSeen = 0;
+        this.lastIssuedTimestamp = issueTimestamp();
+        if (this.getApproximateTime() + 1 < lastTS) {
+            logger.error("Risky clock reset: {}", this.lastIssuedTimestamp);
+        }
+
+    }
+
     protected final int getApproximateTime() {
         return (int) getTimeInMillis() / preciseInMillis;
     }
 
-    long getTimeInMillis() {
-        long millis = System.currentTimeMillis();
-        millis -= EPOCH;
-        millis += this.clockOffsetMs;
-        return millis;
-    }
 }

@@ -21,6 +21,7 @@ public abstract class AbstractClock implements Clock {
 
     final int timePartLen;
     final String id;
+    protected long clockOffsetMs;
 
     VersionToken lastIssuedTimestamp;
     int lastSeqSeen;
@@ -30,6 +31,7 @@ public abstract class AbstractClock implements Clock {
         this.id = processId;
         this.lastSeqSeen = -1;
         this.timePartLen = timePartLen;
+        this.clockOffsetMs = 0L;
     }
 
     @Override
@@ -67,18 +69,11 @@ public abstract class AbstractClock implements Clock {
 
     protected abstract int parseSequencePart(String seq);
 
-    /**
-     * Freshly issued Lamport logical timestamps must be greater than
-     * any timestamps previously seen.
-     */
     @Override
-    public void seeTimestamp(VersionToken ts) {
-        if (ts.compareTo(this.lastIssuedTimestamp) < 0) {
-            return;
-        }
-        TimestampParsed parsed = this.parseTimestamp(ts);
-        this.lastTimeSeen = parsed.time;
-        this.lastSeqSeen = parsed.seq;
+    public long getTimeInMillis() {
+        long millis = System.currentTimeMillis();
+        millis -= EPOCH;
+        millis += this.clockOffsetMs;
+        return millis;
     }
-
 }

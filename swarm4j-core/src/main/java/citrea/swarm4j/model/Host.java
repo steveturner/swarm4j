@@ -148,7 +148,7 @@ public class Host extends Syncable implements HostPeer, Runnable {
 
         this.sources.put(peer.getTypeId(), peer);
         if (ON.equals(spec.getOp())) {
-            peer.deliver(this.newEventSpec(REON), JsonValue.NULL, this); // TODO offset
+            peer.deliver(this.newEventSpec(REON), JsonValue.valueOf(this.clock.getTimeInMillis()), this); // TODO offset
         }
 
         for (Syncable obj: this.objects.values()) {
@@ -156,6 +156,14 @@ public class Host extends Syncable implements HostPeer, Runnable {
         }
 
         this.emit(spec, JsonValue.NULL, peer); // PEX hook
+    }
+
+    @Override
+    protected String validate(FullSpec spec, JsonValue val) {
+        if (!HOST.equals(spec.getType()) && !this.clock.checkTimestamp(spec.getVersion())) {
+            return "invalid timestamp " + spec;
+        }
+        return super.validate(spec, val);
     }
 
     /**
@@ -211,10 +219,12 @@ public class Host extends Syncable implements HostPeer, Runnable {
 
     @Override
     @SwarmOperation(kind = SwarmOperationKind.Neutral)
-    public void reon(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
+    public void reon(FullSpec spec, JsonValue timeInMillis, OpRecipient source) throws SwarmException {
         if (!HOST.equals(spec.getType())) throw new IllegalArgumentException("/NotHost");
         /// well.... TODO
         if (!(source instanceof Peer)) throw new IllegalArgumentException("src is not a Peer");
+        if (!timeInMillis.isNumber()) throw new IllegalArgumentException("value must be numeric");
+        this.clock.adjustTime(timeInMillis.asLong());
         this.addSource(spec, (Peer) source);
     }
 

@@ -21,12 +21,11 @@ public class LamportClock extends AbstractClock {
         VersionToken specToken = new VersionToken(initialTime, processId);
         // sometimes we assume our local clock has some offset
         if (NO_INITIAL_TIME.equals(specToken.getBare())) {
-            this.lastSeqSeen = -1;
             specToken = new VersionToken(issueTimePart() + generateNextSequencePart(), id);
+        } else {
+            lastSeqSeen = 0;
         }
         this.lastIssuedTimestamp = specToken;
-
-        this.seeTimestamp(this.lastIssuedTimestamp);
     }
 
     public LamportClock(String processId) {
@@ -47,6 +46,24 @@ public class LamportClock extends AbstractClock {
     @Override
     protected int parseSequencePart(String seq) {
         return VersionToken.base2int(seq);
+    }
+
+    /**
+     * Freshly issued Lamport logical timestamps must be greater than
+     * any timestamps previously seen.
+     */
+    @Override
+    public boolean checkTimestamp(VersionToken ts) {
+        TimestampParsed parsed = this.parseTimestamp(ts);
+        if (parsed.seq >= this.lastSeqSeen) {
+            this.lastSeqSeen = parsed.seq + 1;
+        }
+        return true;
+    }
+
+    @Override
+    public void adjustTime(long timeInMillis) {
+        // nothing to adjust
     }
 
     @Override

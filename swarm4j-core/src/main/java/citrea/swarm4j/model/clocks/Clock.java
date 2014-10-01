@@ -19,7 +19,11 @@ public interface Clock {
 
     TimestampParsed parseTimestamp(VersionToken ts);
 
-    void seeTimestamp(VersionToken ts);
+    boolean checkTimestamp(VersionToken ts);
+
+    void adjustTime(long timeInMillis);
 
     Date timestamp2date(VersionToken ts);
+
+    long getTimeInMillis();
 }

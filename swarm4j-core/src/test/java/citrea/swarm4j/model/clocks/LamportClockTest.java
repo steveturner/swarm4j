@@ -43,13 +43,13 @@ public class LamportClockTest {
     }
 
     @Test
-    public void testSeeTimestamp() throws Exception {
+    public void testCheckTimestamp() throws Exception {
         final Clock clock = new LamportClock(PROCESS_ID, ZERO_TIME);
-        for (int i = 1; i <= 4; i++) {
-            clock.seeTimestamp(new VersionToken("0000" + (i * 2), PROCESS_ID));
+        for (int i = 1; i <= 3; i++) {
+            assertTrue(clock.checkTimestamp(new VersionToken("0000" + (i * 2), PROCESS_ID)));
             assertEquals(
                     "see("+i+")",
-                    new VersionToken("0000" + (i * 2 + 1), PROCESS_ID),
+                    new VersionToken("0000" + (i * 2 + 2), PROCESS_ID),
                     clock.issueTimestamp()
             );
         }
