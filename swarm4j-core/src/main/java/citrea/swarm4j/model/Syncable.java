@@ -39,6 +39,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
     public static final String TAIL_FIELD = "_tail";
     public static final String VERSION_FIELD = "_version";
     public static final String VECTOR_FIELD = "_vector";
+    public static final JsonObject EMPTY_JSON_OBJECT = JsonObject.unmodifiableObject(new JsonObject());
 
     protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -307,6 +308,8 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
      * Model uses its distilled log to transfer state (no snapshots).
      */
     JsonObject diff(VersionVectorSpec base) {
+        if (this.hasNoState()) return EMPTY_JSON_OBJECT;
+
         this.distillLog(); // TODO optimize?
         JsonObject patch = new JsonObject();
         if (!base.isEmpty() && !ZERO_VERSION_VECTOR.equals(base)) {
@@ -322,6 +325,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
                 patch.set(Syncable.TAIL_FIELD, tail);
             }
         } else {
+            // patch = {_version: "!0", _tail: {}}  ~ zero state plus the tail
             JsonObject tail = new JsonObject();
             for (Map.Entry<VersionOpSpec, JsonValue> op : this.oplog.entrySet()) {
                 tail.set(op.getKey().toString(), op.getValue());
@@ -397,7 +401,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
         if (source == null) return;
 
         // stateless objects fire no events; essentially, on() is deferred
-        if (this.hasNoState() && this.isNotUplinked()) {
+        if (this.hasNoState() && !JSONUtils.isFalsy(filterValue)) {
             this.addListener(
                     new OpFilter(
                             new Deferred(spec, filterValue, source),
@@ -414,8 +418,16 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
 
             if (filter_by_op != null) {
                 if (INIT.equals(filter_by_op)) {
-                    JsonValue diff_if_needed = baseVersion != null ? this.diff(baseVersion) : JsonValue.NULL;
-                    source.deliver(spec.overrideOp(INIT), diff_if_needed, this);
+                    JsonValue diff;
+                    if (baseVersion == null) {
+                        diff = JsonValue.NULL;
+                    } else {
+                        diff = this.diff(baseVersion);
+                        if (diff == null) {
+                            diff = JsonValue.NULL;
+                        }
+                    }
+                    source.deliver(spec.overrideOp(INIT), diff, this);
                     // use once()
                     return;
                 }
