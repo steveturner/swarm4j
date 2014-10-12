@@ -114,7 +114,7 @@ public abstract class Storage implements Peer, Runnable {
      * @see citrea.swarm4j.model.spec.VersionVector
      * @return string representation of SpecMap
      */
-    public static String stateVersionVector(JsonObject state) {
+    public static JsonValue stateVersionVector(JsonObject state) {
         StringBuilder str = new StringBuilder();
         JsonValue version = state.get(Syncable.VERSION_FIELD);
         if (!version.isNull()) {
@@ -136,7 +136,7 @@ public abstract class Storage implements Peer, Runnable {
                 str.append(spec);
             }
         }
-        return new VersionVector(str.toString()).toString();
+        return new VersionVector(str.toString()).toJson();
     }
 
     @Override

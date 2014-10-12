@@ -59,7 +59,7 @@ public class InMemoryStorage extends Storage {
             // First, it adds an op to the log tail unless the log is too long...
             // ...otherwise it sends back a subscription effectively requesting
             // the state, on state arrival zeroes the tail.
-            source.deliver(spec.overrideOp(Syncable.REON), JsonValue.valueOf(Syncable.INIT.toString()), this);
+            source.deliver(spec.overrideOp(Syncable.REON), Syncable.INIT.toJson(), this);
         }
     }
 
@@ -96,7 +96,7 @@ public class InMemoryStorage extends Storage {
         JsonObject state = this.readState(ti);
         if (state == null) {
             state = new JsonObject();
-            state.set(Syncable.VERSION_FIELD, JsonValue.valueOf(SToken.ZERO_VERSION.toString()));
+            state.set(Syncable.VERSION_FIELD, SToken.ZERO_VERSION.toJson());
         }
 
         Map<VersionOpSpec, JsonValue> tail = this.readOps(ti);
@@ -116,7 +116,7 @@ public class InMemoryStorage extends Storage {
         }
         VersionToken version = spec.getVersion();
         source.deliver(ti.fullSpec(version, Syncable.INIT), state, this);
-        source.deliver(ti.fullSpec(version, Syncable.REON), JsonValue.valueOf(Storage.stateVersionVector(state)), this);
+        source.deliver(ti.fullSpec(version, Syncable.REON), Storage.stateVersionVector(state), this);
     }
 
     @Override

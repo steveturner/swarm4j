@@ -253,7 +253,7 @@ public class FileStorage extends Storage {
         // load state
         JsonObject state = new JsonObject();
         if (stateFileReader == null) {
-            state.set(Syncable.VERSION_FIELD, JsonValue.valueOf(SToken.ZERO_VERSION.toString()));
+            state.set(Syncable.VERSION_FIELD, SToken.ZERO_VERSION.toJson());
         } else {
             try {
                 StringBuilder stateData = new StringBuilder();
@@ -290,8 +290,8 @@ public class FileStorage extends Storage {
 
         VersionToken version = spec.getVersion();
         replica.deliver(ti.fullSpec(version, Syncable.INIT), state, this);
-        String versionVector = Storage.stateVersionVector(state);
-        replica.deliver(ti.fullSpec(version, Syncable.REON), JsonValue.valueOf(versionVector), this);
+        JsonValue versionVector = Storage.stateVersionVector(state);
+        replica.deliver(ti.fullSpec(version, Syncable.REON), versionVector, this);
     }
 
     @Override
