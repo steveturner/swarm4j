@@ -161,7 +161,7 @@ public class OnOffTest {
 
         Thread.sleep(100);
 
-        client.on(JsonValue.valueOf(Syncable.REOFF.toString()), new OpRecipient() {
+        client.on(Syncable.REOFF.toJson(), new OpRecipient() {
             @Override
             public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
                 assertSame(source, client);
@@ -176,7 +176,7 @@ public class OnOffTest {
             }
         });
 
-        client.on(JsonValue.valueOf(Syncable.REON.toString()), new OpRecipient() {
+        client.on(Syncable.REON.toJson(), new OpRecipient() {
             @Override
             public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
                 assertEquals(spec.getId(), client.getId());

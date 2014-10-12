@@ -247,9 +247,9 @@ public class HostTest {
         Nest clones = new Nest(host);
         Thread.sleep(20);
 
-        clones.addObject(louieClone);
-        clones.addObject(hueyClone);
-        clones.addObject(deweyClone);
+        clones.add(louieClone);
+        clones.add(hueyClone);
+        clones.add(deweyClone);
 
         List<Duck> sibs = clones.list(duckComparator);
         assertEquals(3, sibs.size());

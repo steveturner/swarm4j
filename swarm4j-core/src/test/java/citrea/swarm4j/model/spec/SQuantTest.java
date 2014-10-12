@@ -24,7 +24,8 @@ public class SQuantTest {
         assertEquals(SQuant.ID, SQuant.TYPE.next());
         assertEquals(SQuant.VERSION, SQuant.ID.next());
         assertEquals(SQuant.OP, SQuant.VERSION.next());
-        assertNull(SQuant.OP.next());
+        assertEquals(SQuant.HINT, SQuant.OP.next());
+        assertNull(SQuant.HINT.next());
     }
 
     @Test
@@ -46,6 +47,6 @@ public class SQuantTest {
 
     @Test(expected = ArrayIndexOutOfBoundsException.class)
     public void testByOrderWrong() throws Exception {
-        SQuant.byOrder(4);
+        SQuant.byOrder(5);
     }
 }

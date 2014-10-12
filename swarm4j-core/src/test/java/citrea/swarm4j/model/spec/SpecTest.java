@@ -89,9 +89,9 @@ public class SpecTest {
             tokens.add(it.next());
         }
         assertEquals(3, tokens.size());
-        assertEquals(new SToken("!v1+s1"), tokens.get(0));
-        assertEquals(new SToken("!v2+s2"), tokens.get(1));
-        assertEquals(new SToken("!v3+s2"), tokens.get(2));
+        assertEquals(new VersionToken("!v1+s1"), tokens.get(0));
+        assertEquals(new VersionToken("!v2+s2"), tokens.get(1));
+        assertEquals(new VersionToken("!v3+s2"), tokens.get(2));
     }
 
     @Test
