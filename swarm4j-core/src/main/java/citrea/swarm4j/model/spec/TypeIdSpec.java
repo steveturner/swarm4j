@@ -70,4 +70,8 @@ public final class TypeIdSpec extends Spec {
     public String asString() {
         return type.toString() + id.toString();
     }
+
+    public TypeIdVersionHintSpec typeIdVersionHint(VersionToken versionToken) {
+        return new TypeIdVersionHintSpec(this, versionToken);
+    }
 }

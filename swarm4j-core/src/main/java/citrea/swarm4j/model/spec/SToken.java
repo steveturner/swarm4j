@@ -1,5 +1,7 @@
 package citrea.swarm4j.model.spec;
 
+import com.eclipsesource.json.JsonValue;
+
 import java.util.Comparator;
 import java.util.Date;
 import java.util.regex.Matcher;
@@ -25,14 +27,13 @@ import java.util.regex.Pattern;
  *         Date: 27/10/13
  *         Time: 12:54
  */
-public class SToken implements Comparable<SToken> {
+public abstract class SToken implements Comparable<SToken> {
 
     public static final String RS_TOK = "[0-9A-Za-z_~]+";
-    public static final String RS_Q_TOK_EXT = ("([$])((=)(?:\\+(=))?)")
-            .replaceAll("\\$", SQuant.allCodes)
-            .replaceAll("=", RS_TOK);
+    public static final String RS_Q_TOK_EXT = ("([Q])((=)(?:\\+(=))?)")
+            .replaceAll("Q", Matcher.quoteReplacement(SQuant.allCodes))
+            .replaceAll("=", Matcher.quoteReplacement(RS_TOK));
     public static final Pattern RE_Q_TOK_EXT = Pattern.compile(RS_Q_TOK_EXT);
-    public static final String RS_TOK_EXT = "^(=)(?:\\+(=))?$".replaceAll("=", RS_TOK);
     public static final String NO_AUTHOR = "swarm";
 
     public static final long EPOCH = 1262275200000L; // 1 Jan 2010 (milliseconds)
@@ -66,7 +67,13 @@ public class SToken implements Comparable<SToken> {
     SToken(SQuant quant, String bare, String processId) {
         this.quant = quant;
         this.bare = bare;
-        this.processId = (processId != null && processId.length() > 0) ? processId : NO_AUTHOR;
+        if (processId == null || processId.length() == 0) {
+            this.processId = NO_AUTHOR;
+        } else if (processId.startsWith("+")) {
+            this.processId = processId.substring(1);
+        } else {
+            this.processId = processId;
+        }
         this.parsed = true;
         this.str = quant.code + this.bare + (NO_AUTHOR.equals(this.processId) ? "" : "+" + this.processId);
     }
@@ -138,10 +145,15 @@ public class SToken implements Comparable<SToken> {
     }
 
     private void parseBody(String body) {
-        int bodyStart = (body.charAt(0) == this.quant.code ? 1 : 0);
-        int pos = body.indexOf("+");
-        this.bare = (pos > -1 ? body.substring(bodyStart, pos) : body.substring(bodyStart));
-        this.processId = (pos > -1 ? body.substring(pos + 1) : NO_AUTHOR);
+        if (body.length() == 0) {
+            this.bare = body;
+            this.processId = NO_AUTHOR;
+        } else {
+            int bodyStart = (body.charAt(0) == this.quant.code ? 1 : 0);
+            int pos = body.indexOf("+");
+            this.bare = (pos > -1 ? body.substring(bodyStart, pos) : body.substring(bodyStart));
+            this.processId = (pos > -1 ? body.substring(pos + 1) : NO_AUTHOR);
+        }
     }
 
     public SQuant getQuant() {
@@ -170,23 +182,18 @@ public class SToken implements Comparable<SToken> {
 
     public SToken overrideQuant(SQuant quant) {
         ensureParsed();
-        return new SToken(quant, bare, processId);
-    }
-
-    public SToken overrideBare(String bare) {
-        ensureParsed();
-        return new SToken(quant, bare, processId);
-    }
-
-    public SToken overrideExt(String ext) {
-        ensureParsed();
-        SToken res;
-        if (ext != null && ext.length() > 0) {
-            res = new SToken(quant, bare, ext);
-        } else {
-            res = new SToken(quant, bare, NO_AUTHOR);
+        switch (quant) {
+            case TYPE:
+                return new TypeToken(bare, processId);
+            case ID:
+                return toIdToken();
+            case VERSION:
+                return toVersionToken();
+            case OP:
+                return new OpToken(bare, processId);
+            default:
+                throw new IllegalArgumentException("unknown quant: " + quant);
         }
-        return res;
     }
 
     @Override
@@ -248,5 +255,9 @@ public class SToken implements Comparable<SToken> {
         } else {
             return new VersionToken(bare, processId);
         }
+    }
+
+    public JsonValue toJson() {
+        return JsonValue.valueOf(toString());
     }
 }

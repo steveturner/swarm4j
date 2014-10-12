@@ -1,5 +1,7 @@
 package citrea.swarm4j.model.spec;
 
+import com.eclipsesource.json.JsonValue;
+
 import java.util.*;
 import java.util.regex.Matcher;
 
@@ -11,7 +13,7 @@ import java.util.regex.Matcher;
  *         Date: 26/10/13
  *         Time: 15:02
  */
-public abstract class Spec implements Comparable<Spec> {
+public abstract class Spec implements SomeSpec, Comparable<Spec> {
 
     private static final int AVERAGE_SPEC_LENGTH = 48;
     private static final EmptySpec EMPTY_SPEC = new EmptySpec();
@@ -21,8 +23,7 @@ public abstract class Spec implements Comparable<Spec> {
     protected Spec() {
     }
 
-    public abstract List<SToken> listTokens();
-
+    @Override
     public String asString() {
         List<SToken> tokens = listTokens();
         StringBuilder sb = new StringBuilder(AVERAGE_SPEC_LENGTH);
@@ -35,6 +36,7 @@ public abstract class Spec implements Comparable<Spec> {
         return sb.toString();
     }
 
+    @Override
     public final boolean isEmpty() {
         return getTokensCount() == 0;
     }
@@ -61,6 +63,10 @@ public abstract class Spec implements Comparable<Spec> {
             str = asString();
         }
         return str;
+    }
+
+    public JsonValue toJson() {
+        return JsonValue.valueOf(toString());
     }
 
     @Override
@@ -112,23 +118,27 @@ public abstract class Spec implements Comparable<Spec> {
                 case OP:
                     tok = new OpToken(bare, ext);
                     break;
+                case HINT:
+                    tok = new HintToken(bare, ext);
+                    break;
                 default:
                     throw new IllegalArgumentException("unknown token quant: " + matcher.group(1));
             }
             tokensList.add(tok);
         }
 
-        boolean hasTypeOrIdOrOperation = false;
+        boolean needSort = false;
         for (SToken token : tokensList) {
             switch (token.getQuant()) {
                 case TYPE:
                 case ID:
                 case OP:
-                    hasTypeOrIdOrOperation = true;
+                case HINT:
+                    needSort = true;
                     break;
             }
         }
-        if (hasTypeOrIdOrOperation) {
+        if (needSort) {
             Collections.sort(tokensList, SToken.ORDER_BY_QUANT);
         }
         return tokensList.toArray(new SToken[tokensList.size()]);
@@ -223,8 +233,6 @@ public abstract class Spec implements Comparable<Spec> {
     };
 
     public static final Comparator<Spec> ORDER_REVERSE = Collections.reverseOrder(ORDER_NATURAL);
-
-    public abstract int getTokensCount();
 
     /**
      * Empty specifier contains no tokens

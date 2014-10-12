@@ -1,5 +1,7 @@
 package citrea.swarm4j.model.spec;
 
+import com.eclipsesource.json.JsonValue;
+
 import java.util.*;
 
 /**
@@ -95,6 +97,10 @@ public class VersionVector {
     @Override
     public String toString() {
          return this.toString(10, "0");
+    }
+
+    public JsonValue toJson() {
+        return JsonValue.valueOf(toString());
     }
 
     public String get(String ext) {

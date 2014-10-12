@@ -17,7 +17,8 @@ public enum SQuant {
     TYPE('/'),
     ID('#'),
     VERSION('!'),
-    OP('.');
+    OP('.'),
+    HINT('*');
 
     private static final Map<Character, SQuant> code2item;
     private static final SQuant[] allInOrder;
@@ -29,6 +30,7 @@ public enum SQuant {
         code2item.put(OP.code, OP);
         code2item.put(ID.code, ID);
         code2item.put(VERSION.code, VERSION);
+        code2item.put(HINT.code, HINT);
 
         allInOrder = SQuant.values();
 
