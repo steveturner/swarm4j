@@ -90,7 +90,7 @@ public class Model extends Syncable {
     public void set(FullSpec spec, JsonValue value) throws SwarmException {
         VersionOpSpec verOp = spec.getVersionOp();
         String version = verOp.getVersion().toString();
-        if (this.version == null || this.version.compareTo(version) < 0) {
+        if (this.version == null || this.version.compareTo(version) > 0) {
             this.oplog.put(verOp, value);
             this.distillLog(); // may amend the value
             value = this.oplog.get(verOp);

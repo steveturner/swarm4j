@@ -140,10 +140,9 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
                     opMeta.invoke(this, spec, value, source);
 
                     // once applied, may remember in the log...
-                    if (INIT.equals(op)) {
-                        if (!this.oplog.isEmpty()) {
-                            this.oplog.put(spec.getVersionOp(), value);
-                        }
+                    if (!INIT.equals(op)) {
+                        this.oplog.put(spec.getVersionOp(), value);
+
                         // this.version is practically a label that lets you know whether
                         // the state has changed. Also, it allows to detect some cases of
                         // concurrent change, as it is always set to the maximum version id
@@ -154,6 +153,8 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
                         } else {
                             this.version += opver;
                         }
+                    } else {
+                        value = this.diff(VersionToken.ZERO_VERSION.asSpec());
                     }
                     // ...and relay further to downstream replicas and various listeners
                     this.emit(spec, value, source);
@@ -330,7 +331,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
             for (Map.Entry<VersionOpSpec, JsonValue> op : this.oplog.entrySet()) {
                 tail.set(op.getKey().toString(), op.getValue());
             }
-            patch.set(Syncable.VERSION_FIELD, JsonValue.valueOf(ZERO_VERSION.toString()));
+            patch.set(Syncable.VERSION_FIELD, ZERO_VERSION.toJson());
             patch.set(Syncable.TAIL_FIELD, tail);
         }
         return patch;
@@ -440,7 +441,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
                 if (!diff.isEmpty()) {
                     source.deliver(spec.overrideOp(INIT), diff, this); // 2downlink
                 }
-                source.deliver(spec.overrideOp(REON), JsonValue.valueOf(this.version().toString()), this);
+                source.deliver(spec.overrideOp(REON), this.version().toJson(), this);
             }
         }
 
@@ -628,7 +629,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
 
             FullSpec onSpec = this.newEventSpec(ON);
             this.addUplink(new PendingUplink(this, new_uplink, onSpec.getVersion()));
-            new_uplink.deliver(onSpec, JsonValue.valueOf(this.version().toString()), this);
+            new_uplink.deliver(onSpec, this.version().toJson(), this);
         }
     }
 
@@ -643,7 +644,7 @@ public abstract class Syncable implements SomeSyncable, SubscriptionAware {
             pojo.set(field.getName(), fieldValue);
         }
         if (addVersionInfo) {
-            pojo.set(Syncable.ID_FIELD, JsonValue.valueOf(this.id.toString())); // not necassary
+            pojo.set(Syncable.ID_FIELD, this.id.toJson()); // not necassary
             pojo.set(Syncable.VERSION_FIELD, JsonValue.valueOf(this.version));
             if (this.vector != null) {
                 pojo.set(Syncable.VECTOR_FIELD, JsonValue.valueOf(this.vector));
