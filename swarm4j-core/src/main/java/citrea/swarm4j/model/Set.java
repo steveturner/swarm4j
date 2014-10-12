@@ -29,8 +29,7 @@ public class Set<T extends Syncable> extends Syncable {
     public static final JsonValue FALSE = JsonValue.valueOf(0);
 
     private final Map<TypeIdSpec, T> objects = new HashMap<TypeIdSpec, T>();
-    private final OpRecipient proxy = new ObjectProxy();
-    private final List<ObjListener> objectListeners = new ArrayList<ObjListener>();
+    private final ProxyListener proxy = new ProxyListener(this);
 
     public Set(IdToken id, Host host) throws SwarmException {
         super(id, host);
@@ -74,27 +73,12 @@ public class Set<T extends Syncable> extends Syncable {
         this.deliver(this.newEventSpec(CHANGE), changes, NOOP);
     }
 
-    public void onObjects(FilterSpec filter, OpRecipient callback) {
-        this.objectListeners.add(new ObjListener(filter, callback));
+    public void onObjects(OpRecipient callback) {
+        this.proxy.on(callback);
     }
 
-    public void offObjects(FilterSpec filter, OpRecipient callback) {
-        Iterator<ObjListener> it = this.objectListeners.iterator();
-        while (it.hasNext()) {
-            ObjListener item = it.next();
-            if (filter.equals(item.filter) && callback.equals(item.listener)) {
-                it.remove();
-            }
-        }
-    }
-
-    public void onObjectEvent(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
-        for(ObjListener entry : this.objectListeners) {
-            if (entry.filter != null && !spec.fits(entry.filter)) {
-                continue;
-            }
-            entry.listener.deliver(spec, value, source);
-        }
+    public void offObjects(OpRecipient callback) {
+        this.proxy.off(callback);
     }
 
     @Override
@@ -116,7 +100,7 @@ public class Set<T extends Syncable> extends Syncable {
         return VALID;
     }
 
-    public JsonValue distillOp(FullSpec spec, JsonValue val) {
+    JsonValue distillOp(FullSpec spec, JsonValue val) {
         if (this.version == null || this.version.compareTo(spec.getVersion().toString()) < 0) { //TODO check condition
             return val; // no concurrent op
         }
@@ -131,23 +115,29 @@ public class Set<T extends Syncable> extends Syncable {
      * Adds an object to the set.
      * @param obj the object  //TODO , its id or its specifier.
      */
-    public void addObject(T obj) throws SwarmException {
+    public void add(T obj) throws SwarmException {
         final TypeIdSpec key_spec = obj.getTypeId();
         JsonObject changes = new JsonObject();
         changes.set(key_spec.toString(), TRUE);
         change(changes);
     }
 
+    public void add(TypeIdSpec typeId) throws SwarmException {
+        JsonObject changes = new JsonObject();
+        changes.set(typeId.toString(), TRUE);
+        change(changes);
+    }
+
     // FIXME reactions to emit .add, .remove
 
-    public void removeObject(TypeIdSpec key_spec) throws SwarmException {
+    public void remove(TypeIdSpec key_spec) throws SwarmException {
         JsonObject changes = new JsonObject();
         changes.set(key_spec.toString(), FALSE);
         change(changes);
     }
 
-    public void removeObject(T obj) throws SwarmException {
-        removeObject(obj.getTypeId());
+    public void remove(T obj) throws SwarmException {
+        remove(obj.getTypeId());
     }
 
     /**
@@ -170,28 +160,5 @@ public class Set<T extends Syncable> extends Syncable {
 
     public List<T> list() {
         return new ArrayList<T>(this.objects.values());
-    }
-
-    public class ObjectProxy implements OpRecipient {
-
-        @Override
-        public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
-            Set.this.onObjectEvent(spec, value, source);
-        }
-
-        @Override
-        public String toString() {
-            return "" + Set.this.getTypeId() + ".ObjectProxy";
-        }
-    }
-
-    private class ObjListener {
-        final FilterSpec filter;
-        final OpRecipient listener;
-
-        private ObjListener(FilterSpec filter, OpRecipient listener) {
-            this.filter = filter;
-            this.listener = listener;
-        }
     }
 }
