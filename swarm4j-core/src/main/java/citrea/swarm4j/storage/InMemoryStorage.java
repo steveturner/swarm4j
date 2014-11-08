@@ -1,9 +1,6 @@
 package citrea.swarm4j.storage;
 
-import citrea.swarm4j.model.Host;
 import citrea.swarm4j.model.SwarmException;
-import citrea.swarm4j.model.Syncable;
-import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.spec.*;
 
 import com.eclipsesource.json.JsonObject;
@@ -11,10 +8,7 @@ import com.eclipsesource.json.JsonValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  /*
@@ -36,143 +30,53 @@ import java.util.Map;
  */
 public class InMemoryStorage extends Storage {
 
-    private static final Logger logger = LoggerFactory.getLogger(InMemoryStorage.class);
+    private final Logger logger = LoggerFactory.getLogger(InMemoryStorage.class);
 
-    // TODO async storage
-    private final Map<TypeIdSpec, Map<VersionOpSpec, JsonValue>> tails = new HashMap<TypeIdSpec, Map<VersionOpSpec, JsonValue>>();
-    private final Map<TypeIdSpec, JsonObject> states = new HashMap<TypeIdSpec, JsonObject>();
-
-    // TODO ??? storage listeners
-    protected Map<Spec, List<OpRecipient>> listeners;
+    // in-mem storage
+    private Map<TypeIdSpec, String> states = new HashMap<TypeIdSpec, String>();
+    private Map<TypeIdSpec, Map<VersionOpSpec, String>> tails = new HashMap<TypeIdSpec, Map<VersionOpSpec, String>>();
 
     public InMemoryStorage(IdToken id) {
         super(id);
         // many implementations do not push changes
         // so there are no listeners
-        this.listeners = null;
+        listeners = null;
     }
 
-    @Override
-    public void op(FullSpec spec, JsonValue val, OpRecipient source) throws SwarmException {
-        if (!this.writeOp(spec, val, source)) {
-            // The storage piggybacks on the object's state/log handling logic
-            // First, it adds an op to the log tail unless the log is too long...
-            // ...otherwise it sends back a subscription effectively requesting
-            // the state, on state arrival zeroes the tail.
-            source.deliver(spec.overrideOp(Syncable.REON), Syncable.INIT.toJson(), this);
-        }
+    protected JsonObject readState(TypeIdSpec ti) throws SwarmException {
+        String stateSerialized = states.get(ti);
+        return stateSerialized == null ? null : JsonObject.readFrom(stateSerialized);
     }
 
-    @Override
-    protected void appendToLog(TypeIdSpec ti, JsonObject ver_op2val) throws SwarmException {
-        throw new UnsupportedOperationException("Not supported for InMemoryStorage");
-    }
-
-    @Override
-    public void init(FullSpec spec, JsonValue patch) throws SwarmException {
-        this.writeState(spec, patch);
-    }
-
-    @Override
-    public TypeIdSpec getTypeId() {
-        return new TypeIdSpec(Host.HOST, this.getPeerId());
-    }
-
-    @Override
-    public void on(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
-        TypeIdSpec ti = spec.getTypeId();
-
-        if (this.listeners != null) {
-            List<OpRecipient> ls = this.listeners.get(ti);
-            if (ls == null) {
-                ls = new ArrayList<OpRecipient>();
-                this.listeners.put(ti, ls);
-                ls.add(source);
-            } else if (!ls.contains(source)) {
-                ls.add(source);
+    protected JsonObject readOps(TypeIdSpec ti) throws SwarmException {
+        Map<VersionOpSpec, String> tailSerialized = tails.get(ti);
+        JsonObject tail;
+        if (tailSerialized == null) {
+            tail = null;
+        } else {
+            tail = new JsonObject();
+            for (Map.Entry<VersionOpSpec, String> entry : tailSerialized.entrySet()) {
+                tail.set(entry.getKey().toString(), JsonObject.readFrom(entry.getValue()));
             }
         }
-
-        JsonObject state = this.readState(ti);
-        if (state == null) {
-            state = new JsonObject();
-            state.set(Syncable.VERSION_FIELD, SToken.ZERO_VERSION.toJson());
-        }
-
-        Map<VersionOpSpec, JsonValue> tail = this.readOps(ti);
-
-        if (tail != null) {
-            final JsonObject stateTail;
-            JsonValue val = state.get(Syncable.TAIL_FIELD);
-            if (val == null || !val.isObject()) {
-                stateTail = new JsonObject();
-            } else {
-                stateTail = new JsonObject(val.asObject());
-            }
-            for (Map.Entry<VersionOpSpec, JsonValue> op : tail.entrySet()) {
-                stateTail.set(op.getKey().toString(), op.getValue());
-            }
-            state.set(Syncable.TAIL_FIELD, stateTail);
-        }
-        VersionToken version = spec.getVersion();
-        source.deliver(ti.fullSpec(version, Syncable.INIT), state, this);
-        source.deliver(ti.fullSpec(version, Syncable.REON), Storage.stateVersionVector(state), this);
+        return tail;
     }
 
-    @Override
-    public void off(FullSpec spec, OpRecipient source) throws SwarmException {
-        if (this.listeners == null) {
-            return;
-        }
-        TypeIdSpec ti = spec.getTypeId();
-        List<OpRecipient> ls = this.listeners.get(ti);
-        if (ls == null) {
-            return;
-        }
-        if (ls.contains(source)) {
-            if (ls.size() == 1) {
-                this.listeners.remove(ti);
-            } else {
-                ls.remove(source);
-            }
-        }
+    protected void writeState(TypeIdSpec ti, JsonValue state) throws SwarmException {
+        states.put(ti, state.toString());
     }
 
-    void writeState(FullSpec spec, JsonValue state) {
+    protected void writeOp(FullSpec spec, JsonValue value) throws SwarmException {
         TypeIdSpec ti = spec.getTypeId();
-        if (state != null && state.isObject()) {
-            this.states.put(ti, (JsonObject) state);
-        }
-        // tail is zeroed on state flush
-        this.tails.put(ti, new HashMap<VersionOpSpec, JsonValue>());
-    }
-
-    boolean writeOp(FullSpec spec, JsonValue value, OpRecipient source) {
-        TypeIdSpec ti = spec.getTypeId();
-        VersionOpSpec vo = spec.getVersionOp();
-        Map<VersionOpSpec, JsonValue> tail = this.tails.get(ti);
+        VersionOpSpec vm = spec.getVersionOp();
+        Map<VersionOpSpec, String> tail = tails.get(ti);
         if (tail == null) {
-            tail = new HashMap<VersionOpSpec, JsonValue>();
-            this.tails.put(ti, tail);
+            tail = new HashMap<VersionOpSpec, String>();
+            tails.put(ti, tail);
         }
-        if (tail.containsKey(vo)) {
-            logger.warn("op replay @storage");
+        if (tail.containsKey(vm)) {
+            logger.warn("op replay @storage {}", vm.toString(), new SwarmException("op replay"));
         }
-        tail.put(vo, value);
-        int count = tail.size();
-        return (count < 3);
+        tail.put(vm, value.toString());
     }
-
-    protected JsonObject readState(TypeIdSpec ti) {
-        JsonObject res = this.states.get(ti);
-        if (res != null) { // clone to prevent changing
-            res = JsonObject.readFrom(res.toString());
-        }
-        return res;
-    }
-
-    protected Map<VersionOpSpec, JsonValue> readOps(TypeIdSpec ti) {
-        return this.tails.get(ti);
-    }
-
 }

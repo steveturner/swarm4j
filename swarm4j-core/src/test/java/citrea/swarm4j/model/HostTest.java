@@ -3,13 +3,16 @@ package citrea.swarm4j.model;
 import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.spec.*;
 
+import citrea.swarm4j.storage.InMemoryStorage;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
 import org.junit.*;
+import org.junit.rules.TestName;
 import org.junit.runners.MethodSorters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.util.*;
 
 import static org.junit.Assert.*;
@@ -25,15 +28,47 @@ import static org.junit.Assert.*;
 public class HostTest {
     private static final Logger logger = LoggerFactory.getLogger(HostTest.class);
 
+    @Rule
+    public TestName name = new TestName();
+
     private Host host;
 
     @Before
     public void setUp() throws Exception {
-        XInMemoryStorage storage = new XInMemoryStorage(new IdToken("#dummy"));
+        InMemoryStorage storage = new InMemoryStorage(new IdToken("#" + name.getMethodName()));
+
+        //FileStorage storage = new FileStorage(new IdToken("#dummy"), "." + name.getMethodName());
+        //storage.setMaxLogSize(2L);
         host = new Host(new IdToken("#gritzko"), storage);
         host.registerType(Duck.class);
         host.start();
         host.waitForStart();
+    }
+
+    private void cleanupStorageFiles() {
+        File dir = new File("." + name.getMethodName());
+        // TODO use FileUtils.deleteDirectory(dir); from apache commons-io
+        File[] dir_files = dir.listFiles();
+        if (dir_files != null) {
+            for (File file : dir_files) {
+                if (file.isDirectory()) {
+                    File[] subdir_files = file.listFiles();
+                    if (subdir_files != null) {
+                        for (File in_file : subdir_files) {
+                            if (!in_file.delete()) {
+                                logger.warn("File wasn't deleted: {}", in_file.getName());
+                            }
+                        }
+                    }
+                }
+                if (!file.delete()) {
+                    logger.warn("File or directory wasn't deleted: {}", file.getName());
+                }
+            }
+        }
+        if (!dir.delete()) {
+            logger.warn("Directory wasn't deleted: {}", dir.getName());
+        }
     }
 
     @After
@@ -41,6 +76,8 @@ public class HostTest {
         host.stop();
         host.close();
         host = null;
+
+        // cleanupStorageFiles();
     }
 
     @Test

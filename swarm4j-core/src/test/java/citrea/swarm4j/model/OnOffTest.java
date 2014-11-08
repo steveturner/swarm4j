@@ -2,11 +2,11 @@ package citrea.swarm4j.model;
 
 import citrea.swarm4j.model.callback.OpRecipient;
 import citrea.swarm4j.model.callback.Uplink;
-import citrea.swarm4j.model.pipe.LoopbackConnection;
 import citrea.swarm4j.model.pipe.LoopbackOpChannelFactory;
 import citrea.swarm4j.model.pipe.Pipe;
 import citrea.swarm4j.model.spec.*;
 
+import citrea.swarm4j.storage.InMemoryStorage;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
 import org.junit.*;
@@ -41,13 +41,11 @@ public class OnOffTest {
     private Host server;
     private Host client;
 
-    private LoopbackConnection up_down_link;
-
     @Before
     public void setUp() throws Exception {
 
-        XInMemoryStorage dummyStorage;
-        dummyStorage = new XInMemoryStorage(new IdToken("#dummy"));
+        InMemoryStorage dummyStorage;
+        dummyStorage = new InMemoryStorage(new IdToken("#dummy"));
         dummyStorage.setAsync(true);
 
         server = new Host(SERVER, dummyStorage);

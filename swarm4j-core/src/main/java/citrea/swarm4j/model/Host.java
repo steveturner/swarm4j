@@ -58,7 +58,6 @@ public class Host extends Syncable implements HostPeer, Runnable {
         this.clock = new SecondPreciseClock(id.getBare());
         if (storage != null) {
             this.storage = storage;
-            this.storage.setHost(this);
             this.sources.put(this.getTypeId(), storage);
         }
     }
@@ -485,7 +484,7 @@ public class Host extends Syncable implements HostPeer, Runnable {
         logger.info("finished");
     }
 
-    public void start() {
+    public void start() throws SwarmException {
         logger.info("{}.start()", this);
         if (this.storage != null) {
             this.storage.start();

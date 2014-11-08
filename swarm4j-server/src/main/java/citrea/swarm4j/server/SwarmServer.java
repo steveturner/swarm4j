@@ -1,6 +1,7 @@
 package citrea.swarm4j.server;
 
 import citrea.swarm4j.model.Host;
+import citrea.swarm4j.model.SwarmException;
 import citrea.swarm4j.util.Utils;
 
 import org.slf4j.Logger;
@@ -47,7 +48,7 @@ public class SwarmServer {
         host.stop();
     }
 
-    public void start() {
+    public void start() throws SwarmException {
         if (host == null) {
             throw new RuntimeException("'host' property not deliver");
         }
