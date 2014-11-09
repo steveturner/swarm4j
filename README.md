@@ -11,10 +11,10 @@ Maven3 must be installed
 
 ## Modules
 
-[swarm4j-core](swarm4j-core) - core classes
-[swarm4j-server](swarm4j-server) - server specific classes
-[swarm4j-client](swarm4j-client) - client specific classes
-[swarm4j-android](swarm4j-android) - contains maven build script to build the project for android platform
+  * [swarm4j-core](swarm4j-core) - core classes
+  * [swarm4j-server](swarm4j-server) - server specific classes
+  * [swarm4j-client](swarm4j-client) - client specific classes
+  * [swarm4j-android](swarm4j-android) - contains maven build script to build the project for android platform
 
 ## Usage
 
