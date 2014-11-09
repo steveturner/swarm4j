@@ -15,7 +15,7 @@
         <dependency>
             <groupId>swarm4j</groupId>
             <artifactId>swarm4j-core</artifactId>
-            <version>${parent.version}</version>
+            <version>${project.parent.version}</version>
         </dependency>
 
         <dependency>
