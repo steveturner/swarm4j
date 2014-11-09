@@ -1,0 +1,183 @@
+package citrea.swarm4j.core.meta.reflection;
+
+import citrea.swarm4j.core.model.Host;
+import citrea.swarm4j.core.SwarmException;
+import citrea.swarm4j.core.model.Syncable;
+import citrea.swarm4j.core.model.annotation.SwarmField;
+import citrea.swarm4j.core.model.annotation.SwarmOperation;
+import citrea.swarm4j.core.model.annotation.SwarmOperationKind;
+import citrea.swarm4j.core.meta.FieldMeta;
+import citrea.swarm4j.core.meta.OperationMeta;
+import citrea.swarm4j.core.meta.TypeMeta;
+import citrea.swarm4j.core.model.annotation.SwarmType;
+import citrea.swarm4j.core.spec.IdToken;
+import citrea.swarm4j.core.spec.OpToken;
+import citrea.swarm4j.core.spec.TypeToken;
+
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Created with IntelliJ IDEA.
+ *
+ * @author aleksisha
+ *         Date: 24.08.2014
+ *         Time: 20:18
+ */
+public class ReflectionTypeMeta implements TypeMeta {
+
+    private final Class<? extends Syncable> type;
+    private final TypeToken typeToken;
+    private final Map<String, OperationMeta> operations = new HashMap<String, OperationMeta>();
+    private final Map<String, FieldMeta> fields = new HashMap<String, FieldMeta>();
+
+    public ReflectionTypeMeta(Class<? extends Syncable> type) throws SwarmException {
+        this.type = type;
+        SwarmType typeAnnotation = type.getAnnotation(SwarmType.class);
+        if (typeAnnotation == null) {
+            throw new SwarmException("Type should be marked by @SwarmType annotation");
+        }
+        String typeName = typeAnnotation.value();
+        if (typeName == null || typeName.length() == 0) {
+            typeName = type.getSimpleName();
+        }
+        this.typeToken = new TypeToken(typeName);
+        detectSyncOperations();
+        detectSyncFields();
+    }
+
+    private void detectSyncOperations() throws SwarmException {
+        for (Method method : this.type.getMethods()) {
+            SwarmOperation methodMeta = null;
+            for (Annotation annotation : method.getAnnotations()) {
+                if (annotation instanceof SwarmOperation) {
+                    methodMeta = (SwarmOperation) annotation;
+                    break;
+                }
+            }
+            if (methodMeta == null) {
+                continue;
+            }
+
+            SwarmMethodSignature signature = SwarmMethodSignature.detect(method);
+            if (signature == null) {
+                throw new SwarmException("Unsupported signature of '" + method.getName() + "' method");
+            }
+
+            // TODO validate method name Syncable.RE_METHOD_NAME
+
+            SwarmOperationKind kind = methodMeta.kind();
+            operations.put(method.getName(), new ReflectionOpMeta(method, kind, signature));
+        }
+    }
+
+    private void detectSyncFields() {
+        for (Field field : this.type.getFields()) {
+            SwarmField fieldMeta = null;
+            for (Annotation annotation : field.getAnnotations()) {
+                if (annotation instanceof SwarmField) {
+                    fieldMeta = (SwarmField) annotation;
+                    break;
+                }
+            }
+
+            if (fieldMeta == null) {
+                continue;
+            }
+
+            fields.put(field.getName(), new FieldWrapper(field));
+        }
+
+    }
+
+    @Override
+    public Class<? extends Syncable> getType() {
+        return type;
+    }
+
+    @Override
+    public TypeToken getTypeToken() {
+        return typeToken;
+    }
+
+    @Override
+    public Syncable newInstance(IdToken id, Host host) throws SwarmException {
+        try {
+            Constructor<? extends Syncable> constructor = type.getConstructor(IdToken.class, Host.class);
+            return constructor.newInstance(id, host);
+        } catch (InvocationTargetException e) {
+            Throwable ex = e.getTargetException();
+            throw new SwarmMethodInvocationException(ex.getMessage(), ex);
+        } catch (NoSuchMethodException e) {
+            throw new SwarmException("Suitable constructor not found: " + typeToken.toString() + id.toString(), e);
+        } catch (InstantiationException e) {
+            throw new SwarmMethodInvocationException(e.getMessage(), e);
+        } catch (IllegalAccessException e) {
+            throw new SwarmMethodInvocationException(e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public FieldMeta getFieldMeta(String fieldName) {
+        return fields.get(fieldName);
+    }
+
+    @Override
+    public OperationMeta getOperationMeta(OpToken op) {
+        return getOperationMeta(op.getBody());
+    }
+
+    @Override
+    public OperationMeta getOperationMeta(String opName) {
+        return operations.get(opName);
+    }
+
+    @Override
+    public String getDescription() {
+        StringBuilder res = new StringBuilder();
+
+        // "/Type{"
+        res.append(typeToken.toString());
+        res.append("{");
+
+        // operations=[op1,op2,...]
+        res.append("operations=[");
+        boolean first;
+        first = true;
+        for (String opName : operations.keySet()) {
+            if (!first) {
+                res.append(",");
+            } else {
+                first = false;
+            }
+            res.append(opName);
+        }
+        res.append("], ");
+
+        // fields=[field1,field2,...]}"
+        res.append("fields=[");
+        first = true;
+        for (String fieldName : fields.keySet()) {
+            if (!first) {
+                res.append(",");
+            } else {
+                first = false;
+            }
+            res.append(fieldName);
+        }
+        res.append("]}");
+
+        return res.toString();
+    }
+
+    @Override
+    public Collection<FieldMeta> getAllFields() {
+        return fields.values();
+    }
+}

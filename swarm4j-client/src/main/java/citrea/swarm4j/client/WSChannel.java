@@ -1,8 +1,8 @@
 package citrea.swarm4j.client;
 
-import citrea.swarm4j.model.SwarmException;
-import citrea.swarm4j.model.pipe.ConnectableOpChannel;
-import citrea.swarm4j.model.pipe.OpChannelListener;
+import citrea.swarm4j.core.SwarmException;
+import citrea.swarm4j.core.pipe.ConnectableOpChannel;
+import citrea.swarm4j.core.pipe.OpChannelListener;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.drafts.Draft_10;
 import org.java_websocket.framing.CloseFrame;

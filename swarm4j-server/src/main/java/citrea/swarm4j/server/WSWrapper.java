@@ -1,8 +1,8 @@
 package citrea.swarm4j.server;
 
-import citrea.swarm4j.model.*;
-import citrea.swarm4j.model.pipe.OpChannel;
-import citrea.swarm4j.model.pipe.OpChannelListener;
+import citrea.swarm4j.core.SwarmException;
+import citrea.swarm4j.core.pipe.OpChannel;
+import citrea.swarm4j.core.pipe.OpChannelListener;
 import org.java_websocket.WebSocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

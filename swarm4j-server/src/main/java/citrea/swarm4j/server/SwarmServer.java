@@ -1,8 +1,8 @@
 package citrea.swarm4j.server;
 
-import citrea.swarm4j.model.Host;
-import citrea.swarm4j.model.SwarmException;
-import citrea.swarm4j.util.Utils;
+import citrea.swarm4j.core.model.Host;
+import citrea.swarm4j.core.SwarmException;
+import citrea.swarm4j.core.util.Utils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

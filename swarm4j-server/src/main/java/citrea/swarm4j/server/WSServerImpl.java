@@ -1,9 +1,9 @@
 package citrea.swarm4j.server;
 
-import citrea.swarm4j.model.Host;
-import citrea.swarm4j.model.Syncable;
-import citrea.swarm4j.model.pipe.Pipe;
-import citrea.swarm4j.util.Utils;
+import citrea.swarm4j.core.model.Host;
+import citrea.swarm4j.core.model.Syncable;
+import citrea.swarm4j.core.pipe.Pipe;
+import citrea.swarm4j.core.util.Utils;
 
 import com.eclipsesource.json.JsonValue;
 import org.java_websocket.WebSocket;
