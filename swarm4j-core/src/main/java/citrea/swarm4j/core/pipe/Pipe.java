@@ -64,9 +64,11 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
         for (Map.Entry<FullSpec, JsonValue> op : parse(message).entrySet()) {
             switch (state) {
                 case NEW:
+                case WAIT_PEER:
                     processHandshake(op.getKey(), op.getValue());
                     break;
-                case HANDSHAKEN:
+                case WAIT_HOST:
+                case OPENED:
                     host.deliver(op.getKey(), op.getValue(), this);
                     break;
                 case CLOSED:
@@ -95,13 +97,19 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
         if (Host.HOST.equals(spec.getType())) {
             final SToken op = spec.getOp();
             if (Syncable.ON.equals(op)) {
-                this.isOnSent = true;
+                isOnSent = true;
+                if (State.NEW.equals(state)) {
+                    state = State.WAIT_PEER;
+                }
             } else if (Syncable.REON.equals(op)) {
-                this.isOnSent = false;
+                isOnSent = false;
+                if (State.WAIT_HOST.equals(state)) {
+                    state = State.OPENED;
+                }
             } else if (Syncable.OFF.equals(op)) {
-                this.close(null);
+                close(null);
             } else if (Syncable.REOFF.equals(op)) {
-                this.isOnSent = null;
+                isOnSent = null;
             }
         }
     }
@@ -131,7 +139,20 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
         FullSpec event_spec = spec.overrideId(this.host.getPeerId());
 
         if (SUBSCRIPTION_OPERATIONS.contains(op)) { // access denied TODO
-            this.setPeerId(spec.getId());
+            setPeerId(spec.getId());
+            switch (state) {
+                case NEW:
+                    state = State.WAIT_HOST;
+                    break;
+                case WAIT_PEER:
+                    state = State.OPENED;
+                    break;
+            }
+            // reset connection attempt
+            this.connectionAttempt = 0;
+            // start sending keep-alive
+            this.plumber.keepAlive(this);
+            // deliver handshake operation to host
             this.host.deliver(event_spec, value, this);
         } else {
             throw new InvalidHandshakeSwarmException(spec, value);
@@ -152,39 +173,36 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
         if (error != null && this.uri != null && !State.CLOSED.equals(state)) {
             plumber.reconnect(this);
         }
-        if (State.HANDSHAKEN.equals(state)) {
-            if (this.isOnSent != null) {
-                // emulate normal off
-                FullSpec offspec = this.host.newEventSpec(this.isOnSent ? Syncable.OFF : Syncable.REOFF);
-                try {
-                    this.host.deliver(offspec, JsonValue.NULL, this);
-                } catch (SwarmException e) {
-                    logger.warn("{}.close(): Error delivering {} to host", this, offspec);
+        switch (state) {
+            case WAIT_HOST:
+            case WAIT_PEER:
+            case OPENED:
+                if (isOnSent != null) {
+                    // emulate normal off
+                    FullSpec offspec = host.newEventSpec(isOnSent ? Syncable.OFF : Syncable.REOFF);
+                    try {
+                        host.deliver(offspec, JsonValue.NULL, this);
+                    } catch (SwarmException e) {
+                        logger.warn("{}.close(): Error delivering {} to host", this, offspec);
+                    }
                 }
-            }
-            this.state = State.CLOSED; // can't pass any more messages
+                state = State.CLOSED; // can't pass any more messages
+                break;
         }
         // TODO plumber.stopKeepAlive ?
-        if (this.channel != null) {
+        if (channel != null) {
             try {
-                this.channel.close();
+                channel.close();
             } catch (Exception e) {
                 // ignore
             }
-            this.channel = null;
+            channel = null;
         }
     }
 
     @Override
     public void setPeerId(IdToken id) {
         this.peerId = id;
-        // now we know remote peer id  it means pipe is handshaken
-        this.state = State.HANDSHAKEN;
-        // reset connection attempt
-        this.connectionAttempt = 0;
-        // start sending keep-alive
-        this.plumber.keepAlive(this);
-        logger.info("{} handshaken", this);
     }
 
     @Override
@@ -244,13 +262,22 @@ public final class Pipe implements OpChannelListener, OpRecipient, Peer {
     }
 
     /**
-     * Created with IntelliJ IDEA.
+     * NEW -> (WAIT_PEER | WAIT_HOST) -> OPENED -> CLOSED
      *
      * @author aleksisha
      *         Date: 07.09.2014
      *         Time: 23:48
      */
     public static enum State {
-        NEW, HANDSHAKEN, CLOSED
+        /** newly created pipe */
+        NEW,
+        /** ".on" sent to remote peer, wait for ".reon" being received */
+        WAIT_PEER,
+        /** ".on" received from remote peer, wait for ".reon" being sent */
+        WAIT_HOST,
+        /** fully handshaken pipe */
+        OPENED,
+        /** connection closed */
+        CLOSED
     }
 }

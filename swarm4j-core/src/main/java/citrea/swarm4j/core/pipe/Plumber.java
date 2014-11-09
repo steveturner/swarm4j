@@ -126,13 +126,13 @@ public final class Plumber implements Runnable {
                 return;
             }
             long now = System.currentTimeMillis();
-            long sinceReceived = now - pipe.lastReceivedTS;
-            long sinceSend = now - pipe.lastSendTS;
 
-            if (sinceSend > keepAliveTimeout >> 1) {
+            // since sent > timeout / 2
+            if (Pipe.State.OPENED.equals(pipe.state) && now - pipe.lastSendTS > keepAliveTimeout >> 1) {
                 pipe.sendMessage("{}");
             }
-            if (sinceReceived > keepAliveTimeout) {
+            // since received > timeout
+            if (now - pipe.lastReceivedTS > keepAliveTimeout) {
                 pipe.close("channel timeout");
             }
             pipe.plumber.keepAlive(pipe);
