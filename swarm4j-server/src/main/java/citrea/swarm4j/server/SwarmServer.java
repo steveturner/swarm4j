@@ -42,7 +42,7 @@ public class SwarmServer {
         this.host = host;
     }
 
-    public void stop() throws IOException, InterruptedException {
+    public void stop() throws IOException, InterruptedException, SwarmException {
         logger.info("stopping");
         wsServer.stop();
         host.stop();

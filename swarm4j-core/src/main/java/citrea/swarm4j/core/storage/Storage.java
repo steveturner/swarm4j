@@ -316,12 +316,13 @@ public abstract class Storage implements Peer, Runnable {
         return getClass().getSimpleName() + getPeerId();
     }
 
-    public void stop() {
+    public void stop() throws SwarmException {
         logger.info("{}.stop()", this);
         synchronized (this) {
             if (queueThread != null) {
                 queueThread.interrupt();
             }
+            this.close();
         }
     }
 }

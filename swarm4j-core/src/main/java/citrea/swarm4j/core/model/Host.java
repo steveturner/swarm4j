@@ -491,7 +491,7 @@ public class Host extends Syncable implements HostPeer, Runnable {
         pipe.setReconnectionUri(upstreamURI);
         pipe.setReconnectTimeout(reconnectTimeout);
         pipe.setConnectionAttempt(connectionAttempt);
-        final ConnectableOpChannel channel = this.connectionFactory.createChannel(upstreamURI);
+        final ConnectableOpChannel channel = connectionFactory.createChannel(upstreamURI);
         pipe.bindChannel(channel);
         channel.connect();
         pipe.deliver(newEventSpec(ON), JsonValue.NULL, this);
@@ -605,7 +605,7 @@ public class Host extends Syncable implements HostPeer, Runnable {
         }
     }
 
-    public void stop() {
+    public void stop() throws SwarmException {
         logger.info("{}.stop()", this);
         synchronized (this) {
             if (queueThread != null) {

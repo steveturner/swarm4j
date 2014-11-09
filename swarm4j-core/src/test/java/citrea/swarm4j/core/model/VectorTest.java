@@ -89,7 +89,7 @@ public class VectorTest {
     }
 
     @After
-    public void cleanup() {
+    public void cleanup() throws SwarmException {
         vhost.stop();
     }
 
