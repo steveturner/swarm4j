@@ -3,6 +3,8 @@ swarm4j
 
 Java implementation of Swarm (see: [SwarmJS](https://github.com/gritzko/swarm))
 
+[![Build Status](https://img.shields.io/travis/abalandin/swarm4j/master.svg)](https://travis-ci.org/abalandin/swarm4j)
+
 ## Building
 
 `mvn clean install`
