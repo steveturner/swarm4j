@@ -16,7 +16,7 @@ public abstract class AbstractClock implements Clock {
     public static final String NO_INITIAL_TIME = "";
 
     // 2014-01-01 00:00:00.000
-    static final long EPOCH = 61346664000000L;
+    static final long EPOCH = 1388534400000L;
     public static final Date EPOCH_DATE = new Date(EPOCH);
 
     final int timePartLen;
