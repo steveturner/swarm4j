@@ -2,7 +2,6 @@ package citrea.swarm4j.storage;
 
 import citrea.swarm4j.core.SwarmException;
 import citrea.swarm4j.core.model.OnOffBaseTest;
-import citrea.swarm4j.core.spec.IdToken;
 import citrea.swarm4j.core.storage.Storage;
 import org.iq80.leveldb.impl.Iq80DBFactory;
 
@@ -11,22 +10,17 @@ import java.io.File;
 public class OnOffLevelDBTest extends OnOffBaseTest {
 
     @Override
-    protected Storage createServerStorage(IdToken id) throws SwarmException {
-        LevelDBStorage storage = new LevelDBStorage(id, Iq80DBFactory.factory, "." + name.getMethodName());
-        storage.setAsync(true);
-        storage.setRoot(true);
-        storage.setMaxLogSize(3L);
-        return storage;
+    protected Storage createServerStorage() throws SwarmException {
+        return new LevelDBStorage(Iq80DBFactory.factory, "." + name.getMethodName());
     }
 
     @Override
     protected void cleanupServerStorage() {
-        File dir = new File("." + name.getMethodName());
-        deleteDirectory(dir);
+        deleteDirectory(new File("." + name.getMethodName()));
     }
 
     @Override
-    protected Storage createClientStorage(IdToken idToken) {
+    protected Storage createClientStorage() {
         return null;
     }
 

@@ -5,6 +5,7 @@ import citrea.swarm4j.core.callback.OpRecipient;
 import citrea.swarm4j.core.spec.*;
 
 import citrea.swarm4j.core.storage.InMemoryStorage;
+import citrea.swarm4j.core.storage.StorageAdaptor;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
 import org.junit.*;
@@ -36,11 +37,12 @@ public class SyncableTest {
 
     @Before
     public void setUp() throws Exception {
-        InMemoryStorage storage = new InMemoryStorage(new IdToken("#" + name.getMethodName()));
+        InMemoryStorage storage = new InMemoryStorage();
+        StorageAdaptor storageAdaptor = new StorageAdaptor(new IdToken("#" + name.getMethodName()), storage);
 
         //FileStorage storage = new FileStorage(new IdToken("#dummy"), "." + name.getMethodName());
         //storage.setMaxLogSize(2L);
-        host = new Host(new IdToken("#gritzko"), storage);
+        host = new Host(new IdToken("#gritzko"), storageAdaptor);
         host.registerType(Duck.class);
         host.start();
         host.waitForStart();

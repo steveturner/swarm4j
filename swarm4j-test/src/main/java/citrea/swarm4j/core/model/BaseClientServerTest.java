@@ -5,6 +5,7 @@ import citrea.swarm4j.core.pipe.LoopbackOpChannelFactory;
 import citrea.swarm4j.core.spec.*;
 
 import citrea.swarm4j.core.storage.Storage;
+import citrea.swarm4j.core.storage.StorageAdaptor;
 import org.junit.*;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
@@ -40,9 +41,13 @@ public abstract class BaseClientServerTest {
     protected Host server;
     protected Host client;
 
-    protected abstract Storage createServerStorage(IdToken id) throws SwarmException;
+    protected abstract Storage createServerStorage() throws SwarmException;
 
-    protected abstract Storage createClientStorage(IdToken idToken);
+    protected abstract Storage createClientStorage();
+
+    protected abstract void setupServerStorageAdaptor(StorageAdaptor adaptor);
+
+    protected abstract void setupClientStorageAdaptor(StorageAdaptor adaptor);
 
     protected abstract void cleanupServerStorage();
 
@@ -58,16 +63,25 @@ public abstract class BaseClientServerTest {
 
     @Before
     public void setUp() throws Exception {
+        Storage dummyStorage = createServerStorage();
 
-        Storage dummyStorage = createServerStorage(DUMMY_STORAGE_ID);
+        StorageAdaptor serverStorageAdaptor = new StorageAdaptor(DUMMY_STORAGE_ID, dummyStorage);
+        setupServerStorageAdaptor(serverStorageAdaptor);
 
-        server = new Host(SERVER, dummyStorage);
+        server = new Host(SERVER, serverStorageAdaptor);
         setupServerHost(server);
         server.start();
         server.waitForStart();
 
-        Storage cacheStorage = createClientStorage(new IdToken("#cache"));
-        client = new Host(CLIENT, cacheStorage);
+        Storage cacheStorage = createClientStorage();
+        StorageAdaptor cacheStorageAdaptor;
+        if (cacheStorage != null) {
+            cacheStorageAdaptor = new StorageAdaptor(new IdToken("#cache"), cacheStorage);
+            setupClientStorageAdaptor(cacheStorageAdaptor);
+        } else {
+            cacheStorageAdaptor = null;
+        }
+        client = new Host(CLIENT, cacheStorageAdaptor);
         setupClientHost(client);
         client.start();
         client.waitForStart();

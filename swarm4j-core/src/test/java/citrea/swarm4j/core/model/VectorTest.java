@@ -6,6 +6,7 @@ import citrea.swarm4j.core.model.annotation.SwarmType;
 import citrea.swarm4j.core.callback.OpRecipient;
 import citrea.swarm4j.core.spec.*;
 import citrea.swarm4j.core.storage.InMemoryStorage;
+import citrea.swarm4j.core.storage.StorageAdaptor;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
 import org.junit.After;
@@ -63,10 +64,11 @@ public class VectorTest {
 
     @Before
     public void setUp() throws SwarmException, InterruptedException {
-        InMemoryStorage storage = new InMemoryStorage(new IdToken("#dummy"));
-        storage.setAsync(false);
+        InMemoryStorage storage = new InMemoryStorage();
+        StorageAdaptor storageAdaptor = new StorageAdaptor(new IdToken("#dummy"), storage);
+        storageAdaptor.setAsync(false);
 
-        vhost = new Host(new IdToken("#matrix"), storage);
+        vhost = new Host(new IdToken("#matrix"), storageAdaptor);
         vhost.setAsync(false);
         vhost.start();
         vhost.waitForStart();

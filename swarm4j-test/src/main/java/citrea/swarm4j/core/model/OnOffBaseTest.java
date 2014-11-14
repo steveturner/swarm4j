@@ -8,6 +8,7 @@ import citrea.swarm4j.core.spec.FullSpec;
 import citrea.swarm4j.core.spec.IdToken;
 import citrea.swarm4j.core.spec.TypeIdSpec;
 import citrea.swarm4j.core.storage.Storage;
+import citrea.swarm4j.core.storage.StorageAdaptor;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
 import org.junit.Assert;
@@ -31,9 +32,24 @@ public abstract class OnOffBaseTest extends BaseClientServerTest {
 
     private static final Logger logger = LoggerFactory.getLogger(BaseClientServerTest.class);
 
-    protected abstract Storage createServerStorage(IdToken id) throws SwarmException;
+    protected abstract Storage createServerStorage() throws SwarmException;
 
-    protected abstract Storage createClientStorage(IdToken idToken);
+    @Override
+    protected void setupServerStorageAdaptor(StorageAdaptor adaptor) {
+        adaptor.setMaxLogSize(3L);
+        adaptor.setRoot(true);
+        adaptor.setAsync(true);
+    }
+
+    protected abstract Storage createClientStorage();
+
+    @Override
+    protected void setupClientStorageAdaptor(StorageAdaptor adaptor) {
+        if (adaptor == null) return;
+
+        adaptor.setRoot(false);
+        adaptor.setAsync(true);
+    }
 
     protected abstract void cleanupServerStorage();
 

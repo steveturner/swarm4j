@@ -2,7 +2,6 @@ package citrea.swarm4j.storage;
 
 import citrea.swarm4j.core.SwarmException;
 import citrea.swarm4j.core.spec.FullSpec;
-import citrea.swarm4j.core.spec.IdToken;
 import citrea.swarm4j.core.spec.TypeIdSpec;
 import citrea.swarm4j.core.spec.VersionOpSpec;
 import citrea.swarm4j.core.storage.Storage;
@@ -24,7 +23,7 @@ import java.util.*;
  *         Date: 10.11.2014
  *         Time: 18:56
  */
-public class LevelDBStorage extends Storage {
+public class LevelDBStorage implements Storage {
 
     private static final Charset CHARSET_UTF8 = Charset.forName("UTF-8");
 
@@ -36,14 +35,13 @@ public class LevelDBStorage extends Storage {
 
     private final Map<TypeIdSpec, Set<VersionOpSpec>> tails = new HashMap<TypeIdSpec, Set<VersionOpSpec>>();
 
-    protected LevelDBStorage(IdToken id, DBFactory dbFactory, String filename) {
-        super(id);
+    protected LevelDBStorage(DBFactory dbFactory, String filename) {
         this.dbFactory = dbFactory;
         this.filename = filename;
     }
 
     @Override
-    public void start() throws SwarmException {
+    public void open() throws SwarmException {
         // open level db
         Options opts = new Options();
         opts.createIfMissing(true);
@@ -53,7 +51,6 @@ public class LevelDBStorage extends Storage {
         } catch (IOException e) {
             throw new SwarmException("Error opening leveldb: " + e.getMessage(), e);
         }
-        super.start();
     }
 
     @Override
@@ -64,11 +61,10 @@ public class LevelDBStorage extends Storage {
         } catch (IOException e) {
             throw new SwarmException("Error closing leveldb: " + e.getMessage(), e);
         }
-        super.close();
     }
 
     @Override
-    protected JsonObject readState(TypeIdSpec ti) throws SwarmException {
+    public JsonObject readState(TypeIdSpec ti) throws SwarmException {
         logger.debug("{}.readState({})", this, ti);
         byte[] key = ti.toString().getBytes(CHARSET_UTF8);
         ReadOptions opts = new ReadOptions();
@@ -87,7 +83,7 @@ public class LevelDBStorage extends Storage {
     }
 
     @Override
-    protected JsonObject readOps(TypeIdSpec ti) throws SwarmException {
+    public JsonObject readOps(TypeIdSpec ti) throws SwarmException {
         logger.debug("{}.readOps({})", this, ti);
 
         byte[] since = (ti.toString() + " ").getBytes(CHARSET_UTF8);
@@ -125,7 +121,7 @@ public class LevelDBStorage extends Storage {
     }
 
     @Override
-    protected void writeOp(FullSpec spec, JsonValue value) throws SwarmException {
+    public void writeOp(FullSpec spec, JsonValue value) throws SwarmException {
         logger.debug("{}.writeOp({}, {})", this, spec, value);
         String json = value.toString();
         TypeIdSpec ti = spec.getTypeId();
@@ -142,12 +138,12 @@ public class LevelDBStorage extends Storage {
     }
 
     @Override
-    protected void cleanUpCache(TypeIdSpec ti) {
+    public void cleanUpCache(TypeIdSpec ti) {
         tails.remove(ti);
     }
 
     @Override
-    protected void writeState(TypeIdSpec ti, JsonValue state) throws SwarmException {
+    public void writeState(TypeIdSpec ti, JsonValue state) throws SwarmException {
         logger.debug("{}.writeState({}, {})", this, ti, state);
         if (db == null) {
             throw new SwarmException("The storage is not open");
@@ -174,7 +170,6 @@ public class LevelDBStorage extends Storage {
         db.write(batch);
         tails.remove(ti);
     }
-
 
     public static class SpecDBComparator implements DBComparator {
         @Override

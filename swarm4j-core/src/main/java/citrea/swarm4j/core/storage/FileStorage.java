@@ -28,7 +28,7 @@ import java.util.*;
  *
  * TODO async io
  */
-public class FileStorage extends Storage {
+public class FileStorage implements Storage {
 
     public static final Logger logger = LoggerFactory.getLogger(FileStorage.class);
 
@@ -40,9 +40,7 @@ public class FileStorage extends Storage {
 
     private Map<TypeIdSpec, Map<VersionOpSpec, JsonValue>> tails = new HashMap<TypeIdSpec, Map<VersionOpSpec, JsonValue>>();
 
-    public FileStorage(IdToken id, String dir) throws SwarmException {
-        super(id);
-
+    public FileStorage(String dir) throws SwarmException {
         this.dir = dir;
         File storageRoot = new File(dir);
         if (!storageRoot.exists()) {
@@ -53,15 +51,21 @@ public class FileStorage extends Storage {
     }
 
     @Override
-    public void start() throws SwarmException {
+    public void open() throws SwarmException {
         loadLog();
         rotateLog(false);
-
-        super.start();
     }
 
     @Override
-    protected void writeState(TypeIdSpec ti, JsonValue state) throws SwarmException {
+    public void close() throws SwarmException {
+        if (logFile != null) {
+            rotateLog(true);
+        }
+        tails.clear();
+    }
+
+    @Override
+    public void writeState(TypeIdSpec ti, JsonValue state) throws SwarmException {
         String stateFileName = buildStateFileName(ti);
         int pos = stateFileName.lastIndexOf("/");
         String dir = stateFileName.substring(0, pos);
@@ -98,7 +102,7 @@ public class FileStorage extends Storage {
     }
 
     @Override
-    protected JsonObject readState(TypeIdSpec ti) throws SwarmException {
+    public JsonObject readState(TypeIdSpec ti) throws SwarmException {
         String stateFileName = buildStateFileName(ti);
 
         // read in the state
@@ -167,12 +171,12 @@ public class FileStorage extends Storage {
     }
 
     @Override
-    protected void cleanUpCache(TypeIdSpec ti) {
+    public void cleanUpCache(TypeIdSpec ti) {
         tails.remove(ti);
     }
 
     @Override
-    protected JsonObject readOps(TypeIdSpec ti) throws SwarmException {
+    public JsonObject readOps(TypeIdSpec ti) throws SwarmException {
         Map<VersionOpSpec, JsonValue> tail = tails.get(ti);
         JsonObject res;
         if (tail == null) {
@@ -310,14 +314,5 @@ public class FileStorage extends Storage {
         } catch (IOException e) {
             throw new SwarmException("Error loading log: " + e.getMessage(), e);
         }
-    }
-
-    @Override
-    public void close() throws SwarmException {
-        if (logFile != null) {
-            rotateLog(true);
-        }
-        tails.clear();
-        super.close();
     }
 }

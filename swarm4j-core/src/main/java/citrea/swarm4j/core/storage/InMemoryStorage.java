@@ -17,7 +17,7 @@ import java.util.*;
  *         Date: 26.08.2014
  *         Time: 00:33
  */
-public class InMemoryStorage extends Storage {
+public class InMemoryStorage implements Storage {
 
     private final Logger logger = LoggerFactory.getLogger(InMemoryStorage.class);
 
@@ -25,19 +25,24 @@ public class InMemoryStorage extends Storage {
     private Map<TypeIdSpec, String> states = new HashMap<TypeIdSpec, String>();
     private Map<TypeIdSpec, Map<VersionOpSpec, String>> tails = new HashMap<TypeIdSpec, Map<VersionOpSpec, String>>();
 
-    public InMemoryStorage(IdToken id) {
-        super(id);
-        // many implementations do not push changes
-        // so there are no listeners
-        listeners = null;
+    @Override
+    public void open() {
+
     }
 
-    protected JsonObject readState(TypeIdSpec ti) throws SwarmException {
+    @Override
+    public void close() {
+
+    }
+
+    @Override
+    public JsonObject readState(TypeIdSpec ti) throws SwarmException {
         String stateSerialized = states.get(ti);
         return stateSerialized == null ? null : JsonObject.readFrom(stateSerialized);
     }
 
-    protected JsonObject readOps(TypeIdSpec ti) throws SwarmException {
+    @Override
+    public JsonObject readOps(TypeIdSpec ti) throws SwarmException {
         Map<VersionOpSpec, String> tailSerialized = tails.get(ti);
         JsonObject tail;
         if (tailSerialized == null) {
@@ -51,11 +56,13 @@ public class InMemoryStorage extends Storage {
         return tail;
     }
 
-    protected void writeState(TypeIdSpec ti, JsonValue state) throws SwarmException {
+    @Override
+    public void writeState(TypeIdSpec ti, JsonValue state) throws SwarmException {
         states.put(ti, state.toString());
     }
 
-    protected void writeOp(FullSpec spec, JsonValue value) throws SwarmException {
+    @Override
+    public void writeOp(FullSpec spec, JsonValue value) throws SwarmException {
         TypeIdSpec ti = spec.getTypeId();
         VersionOpSpec vm = spec.getVersionOp();
         Map<VersionOpSpec, String> tail = tails.get(ti);
@@ -70,7 +77,7 @@ public class InMemoryStorage extends Storage {
     }
 
     @Override
-    protected void cleanUpCache(TypeIdSpec ti) {
+    public void cleanUpCache(TypeIdSpec ti) {
         // never clean
     }
 }

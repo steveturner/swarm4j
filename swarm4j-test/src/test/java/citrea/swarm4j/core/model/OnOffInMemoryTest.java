@@ -3,6 +3,7 @@ package citrea.swarm4j.core.model;
 import citrea.swarm4j.core.spec.IdToken;
 import citrea.swarm4j.core.storage.InMemoryStorage;
 import citrea.swarm4j.core.storage.Storage;
+import citrea.swarm4j.core.storage.StorageAdaptor;
 
 /**
  * Created with IntelliJ IDEA.
@@ -13,10 +14,14 @@ import citrea.swarm4j.core.storage.Storage;
  */
 public class OnOffInMemoryTest extends OnOffBaseTest {
 
-    protected Storage createServerStorage(IdToken id) {
-        Storage storage = new InMemoryStorage(id);
-        storage.setAsync(true);
-        return storage;
+    @Override
+    protected Storage createServerStorage() {
+        return new InMemoryStorage();
+    }
+
+    @Override
+    protected Storage createClientStorage() {
+        return null;
     }
 
     protected void cleanupServerStorage() {
@@ -25,12 +30,5 @@ public class OnOffInMemoryTest extends OnOffBaseTest {
 
     protected void cleanupClientStorage() {
 
-    }
-
-    protected Storage createClientStorage(IdToken idToken) {
-        //cacheStorage = new XInMemoryStorage(new SpecToken("#cache"));
-        //cacheStorageThread = new Thread(cacheStorage);
-        //cacheStorageThread.start();
-        return null;
     }
 }

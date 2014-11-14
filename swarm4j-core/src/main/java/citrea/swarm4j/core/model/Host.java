@@ -15,7 +15,7 @@ import citrea.swarm4j.core.pipe.*;
 import citrea.swarm4j.core.meta.reflection.ReflectionTypeMeta;
 import citrea.swarm4j.core.model.annotation.SwarmType;
 import citrea.swarm4j.core.model.value.JSONUtils;
-import citrea.swarm4j.core.storage.Storage;
+import citrea.swarm4j.core.storage.StorageAdaptor;
 import citrea.swarm4j.core.spec.*;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
@@ -31,7 +31,7 @@ import java.util.concurrent.LinkedBlockingQueue;
  * Normally, a Host has some <code>Storage</code> and one or more <code>Pipe</code>s to other Hosts.
  *
  * @see citrea.swarm4j.core.model.Syncable
- * @see citrea.swarm4j.core.storage.Storage
+ * @see citrea.swarm4j.core.storage.StorageAdaptor
  * @see citrea.swarm4j.core.pipe.OpChannel
  * @see citrea.swarm4j.core.pipe.Pipe
  *
@@ -64,7 +64,7 @@ public class Host extends Syncable implements HostPeer, Runnable {
     /**
      * the storage to work with (to save/restore objects' states and op-log)
      */
-    private Storage storage = null;
+    private StorageAdaptor storageAdaptor = null;
 
     // TODO clock in config
     /**
@@ -92,16 +92,16 @@ public class Host extends Syncable implements HostPeer, Runnable {
      * Creates new Host instance with specified id and storage.
      *
      * @param id id of the host, must be globally unique; server-side hosts ids should start with "swarm~"-string
-     * @param storage storage for data persistence
+     * @param storageAdaptor storage for data persistence
      * @throws citrea.swarm4j.core.SwarmException
      */
-    public Host(IdToken id, Storage storage) throws SwarmException {
+    public Host(IdToken id, StorageAdaptor storageAdaptor) throws SwarmException {
         super(id, null);
         this.setHost(this);
         this.clock = new SecondPreciseClock(id.getBare());
-        if (storage != null) {
-            this.storage = storage;
-            this.sources.put(this.getTypeId(), storage);
+        if (storageAdaptor != null) {
+            this.storageAdaptor = storageAdaptor;
+            this.sources.put(this.getTypeId(), storageAdaptor);
         }
     }
 
@@ -389,9 +389,9 @@ public class Host extends Syncable implements HostPeer, Runnable {
 
         if (thisHostId.startsWith(SERVER_HOST_ID_PREFIX)) {
             mindist = this.hashDistance(thisHostId, target);
-            closestPeer = this.storage;
-        } else if (this.storage != null) {
-            uplinks.add(this.storage); // client-side cache
+            closestPeer = this.storageAdaptor;
+        } else if (this.storageAdaptor != null) {
+            uplinks.add(this.storageAdaptor); // client-side cache
         }
 
         for (Map.Entry<TypeIdSpec, Peer> entry : this.sources.entrySet()) {
@@ -587,8 +587,8 @@ public class Host extends Syncable implements HostPeer, Runnable {
 
     public void start() throws SwarmException {
         logger.info("{}.start()", this);
-        if (this.storage != null) {
-            this.storage.start();
+        if (this.storageAdaptor != null) {
+            this.storageAdaptor.start();
         }
         this.plumber.start(getId());
         if (this.async) {
@@ -600,8 +600,8 @@ public class Host extends Syncable implements HostPeer, Runnable {
 
     public void waitForStart() throws InterruptedException {
         this.started.await();
-        if (this.storage != null) {
-            this.storage.waitForStart();
+        if (this.storageAdaptor != null) {
+            this.storageAdaptor.waitForStart();
         }
     }
 
@@ -612,8 +612,8 @@ public class Host extends Syncable implements HostPeer, Runnable {
                 queueThread.interrupt();
             }
         }
-        if (this.storage != null) {
-            this.storage.stop();
+        if (this.storageAdaptor != null) {
+            this.storageAdaptor.stop();
         }
         this.plumber.stop();
     }

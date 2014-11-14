@@ -1,7 +1,7 @@
 /**
  * Contains classes implementing persistence layer for Syncable data objects.
  *
- * @see citrea.swarm4j.core.storage.Storage
+ * @see citrea.swarm4j.core.storage.StorageAdaptor
  *
  * Created with IntelliJ IDEA.
  * @author aleksisha
