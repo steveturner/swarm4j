@@ -68,4 +68,9 @@ public class InMemoryStorage extends Storage {
         }
         tail.put(vm, value.toString());
     }
+
+    @Override
+    protected void cleanUpCache(TypeIdSpec ti) {
+        // never clean
+    }
 }

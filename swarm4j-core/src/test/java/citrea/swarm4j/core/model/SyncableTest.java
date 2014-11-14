@@ -26,8 +26,8 @@ import static org.junit.Assert.*;
  *         Time: 10:01
  */
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
-public class HostTest {
-    private static final Logger logger = LoggerFactory.getLogger(HostTest.class);
+public class SyncableTest {
+    private static final Logger logger = LoggerFactory.getLogger(SyncableTest.class);
 
     @Rule
     public TestName name = new TestName();

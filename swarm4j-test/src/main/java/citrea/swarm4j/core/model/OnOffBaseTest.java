@@ -3,84 +3,63 @@ package citrea.swarm4j.core.model;
 import citrea.swarm4j.core.SwarmException;
 import citrea.swarm4j.core.callback.OpRecipient;
 import citrea.swarm4j.core.callback.Uplink;
-import citrea.swarm4j.core.pipe.LoopbackOpChannelFactory;
 import citrea.swarm4j.core.pipe.Pipe;
-import citrea.swarm4j.core.spec.*;
-
-import citrea.swarm4j.core.storage.InMemoryStorage;
+import citrea.swarm4j.core.spec.FullSpec;
+import citrea.swarm4j.core.spec.IdToken;
+import citrea.swarm4j.core.spec.TypeIdSpec;
+import citrea.swarm4j.core.storage.Storage;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
-import org.junit.*;
-import org.junit.runners.MethodSorters;
+import org.junit.Assert;
+import org.junit.Ignore;
+import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URI;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.Assert.*;
 
 /**
  * Created with IntelliJ IDEA.
  *
  * @author aleksisha
- *         Date: 28.08.2014
- *         Time: 22:48
+ *         Date: 14.11.2014
+ *         Time: 15:51
  */
-@FixMethodOrder(MethodSorters.NAME_ASCENDING)
-public class OnOffTest {
+public abstract class OnOffBaseTest extends BaseClientServerTest {
 
-    private static final Logger logger = LoggerFactory.getLogger(OnOffTest.class);
-    private static final IdToken SERVER = new IdToken("#" + Host.SERVER_HOST_ID_PREFIX + "up");
-    private static final IdToken CLIENT = new IdToken("#client");
-    private static final IdToken DUMMY_STORAGE_ID = new IdToken("#dummy");
-    private static final int RECONNECT_TIMEOUT = 10;
+    private static final Logger logger = LoggerFactory.getLogger(BaseClientServerTest.class);
 
-    //TODO cache-storage private Thread cacheStorageThread;
+    protected abstract Storage createServerStorage(IdToken id) throws SwarmException;
 
-    //TODO cache-storage private XInMemoryStorage cacheStorage;
+    protected abstract Storage createClientStorage(IdToken idToken);
 
-    private Host server;
-    private Host client;
+    protected abstract void cleanupServerStorage();
 
-    @Before
-    public void setUp() throws Exception {
+    protected abstract void cleanupClientStorage();
 
-        InMemoryStorage dummyStorage;
-        dummyStorage = new InMemoryStorage(DUMMY_STORAGE_ID);
-        dummyStorage.setAsync(true);
-
-        server = new Host(SERVER, dummyStorage);
-        server.setAsync(true);
-        server.registerType(Duck.class);
-        server.registerType(Thermometer.class);
-        server.start();
-        server.waitForStart();
-
-        //cacheStorage = new XInMemoryStorage(new SpecToken("#cache"));
-        //cacheStorageThread = new Thread(cacheStorage);
-        //cacheStorageThread.start();
-
-        client = new Host(CLIENT);
-        client.setAsync(true);
-        client.registerType(Duck.class);
-        client.registerType(Thermometer.class);
-        client.registerChannelFactory(LoopbackOpChannelFactory.SCHEME, new LoopbackOpChannelFactory(server));
-        client.start();
-        client.waitForStart();
-
-        client.connect(new URI(LoopbackOpChannelFactory.SCHEME + "://server"), RECONNECT_TIMEOUT, 0);
+    protected Set<Class<? extends Syncable>> getClassesToRegister() {
+        Set<Class<? extends Syncable>> res = new HashSet<Class<? extends Syncable>>();
+        res.add(Thermometer.class);
+        return res;
     }
 
-    @After
-    public void tearDown() throws Exception {
-        client.close();
-        client.stop();
-        client = null;
+    protected void setupServerHost(Host host) throws SwarmException {
+        host.setAsync(true);
+        Set<Class<? extends Syncable>> classesToRegister = getClassesToRegister();
+        for (Class<? extends Syncable> cls : classesToRegister) {
+            host.registerType(cls);
+        }
+    }
 
-        server.close();
-        server.stop();
-        server = null;
+    protected void setupClientHost(Host host) throws SwarmException {
+        host.setAsync(true);
+        Set<Class<? extends Syncable>> classesToRegister = getClassesToRegister();
+        for (Class<? extends Syncable> cls : classesToRegister) {
+            host.registerType(cls);
+        }
+        super.setupClientHost(host);
     }
 
     @Test
@@ -106,8 +85,8 @@ public class OnOffTest {
         Thread.sleep(100);
 
         Thermometer o = (Thermometer) server.objects.get(THERM_ID);
-        assertNotNull(o);
-        assertEquals(22, o.t);
+        Assert.assertNotNull(o);
+        Assert.assertEquals(22, o.t);
     }
 
     @Test
@@ -148,7 +127,7 @@ public class OnOffTest {
         }
 
         Thread.sleep(500);
-        assertEquals("reconnected 10 times", 10, counter.get());
+        Assert.assertEquals("reconnected 10 times", 10, counter.get());
     }
 
     // TODO disconnection events
@@ -164,9 +143,9 @@ public class OnOffTest {
         client.on(Syncable.REOFF.toJson(), new OpRecipient() {
             @Override
             public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
-                assertSame(source, client);
-                assertTrue(source instanceof Host);
-                assertFalse(!((Host) source).isNotUplinked());
+                Assert.assertSame(source, client);
+                Assert.assertTrue(source instanceof Host);
+                Assert.assertFalse(!((Host) source).isNotUplinked());
                 counter.incrementAndGet();
             }
 
@@ -179,7 +158,7 @@ public class OnOffTest {
         client.on(Syncable.REON.toJson(), new OpRecipient() {
             @Override
             public void deliver(FullSpec spec, JsonValue value, OpRecipient source) throws SwarmException {
-                assertEquals(spec.getId(), client.getId());
+                Assert.assertEquals(spec.getId(), client.getId());
             }
 
             @Override
@@ -192,6 +171,6 @@ public class OnOffTest {
         client.disconnect(server.getPeerId());
 
         Thread.sleep(100);
-        assertEquals(3, counter.get());
+        Assert.assertEquals(3, counter.get());
     }
 }

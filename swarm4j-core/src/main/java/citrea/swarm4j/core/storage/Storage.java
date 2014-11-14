@@ -161,15 +161,15 @@ public abstract class Storage implements Peer, Runnable {
     }
 
     private void off(FullSpec spec, OpRecipient source) {
-        if (listeners == null) {
-            return;
-        }
         TypeIdSpec ti = spec.getTypeId();
-        List<OpRecipient> ls = listeners.get(ti);
-        ls.remove(source);
-        if (ls.isEmpty()) {
-            listeners.remove(ti);
+        if (listeners != null) {
+            List<OpRecipient> ls = listeners.get(ti);
+            ls.remove(source);
+            if (ls.isEmpty()) {
+                listeners.remove(ti);
+            }
         }
+        cleanUpCache(ti);
     }
 
     private void init(FullSpec spec, final JsonValue state) {
@@ -218,6 +218,8 @@ public abstract class Storage implements Peer, Runnable {
     protected abstract void writeState(TypeIdSpec spec, JsonValue state) throws SwarmException;
 
     protected abstract void writeOp(FullSpec spec, JsonValue value) throws SwarmException;
+
+    protected abstract void cleanUpCache(TypeIdSpec ti);
 
     public void close() throws SwarmException {
     }

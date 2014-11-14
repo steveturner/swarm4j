@@ -167,18 +167,23 @@ public class FileStorage extends Storage {
     }
 
     @Override
+    protected void cleanUpCache(TypeIdSpec ti) {
+        tails.remove(ti);
+    }
+
+    @Override
     protected JsonObject readOps(TypeIdSpec ti) throws SwarmException {
-        Map<VersionOpSpec, JsonValue> tailSerialized = tails.get(ti);
-        JsonObject tail;
-        if (tailSerialized == null) {
-            tail = null;
+        Map<VersionOpSpec, JsonValue> tail = tails.get(ti);
+        JsonObject res;
+        if (tail == null) {
+            res = null;
         } else {
-            tail = new JsonObject();
-            for (Map.Entry<VersionOpSpec, JsonValue> entry : tailSerialized.entrySet()) {
-                tail.set(entry.getKey().toString(), entry.getValue());
+            res = new JsonObject();
+            for (Map.Entry<VersionOpSpec, JsonValue> entry : tail.entrySet()) {
+                res.set(entry.getKey().toString(), entry.getValue());
             }
         }
-        return tail;
+        return res;
     }
 
     private String buildLogFileName() {
@@ -312,6 +317,7 @@ public class FileStorage extends Storage {
         if (logFile != null) {
             rotateLog(true);
         }
+        tails.clear();
         super.close();
     }
 }
