@@ -1,6 +1,12 @@
-*.class
+# Project files #
 .idea
 *.iml
+
+# Build target #
+target
+classes
+.clover
+*.class
 
 # Package Files #
 *.jar
