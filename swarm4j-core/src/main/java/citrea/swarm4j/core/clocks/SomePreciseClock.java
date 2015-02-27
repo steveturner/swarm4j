@@ -41,7 +41,7 @@ public abstract class SomePreciseClock extends AbstractClock {
 
     @Override
     protected String issueTimePart() {
-        int res = this.getApproximateTime();
+        long res = this.getApproximateTime();
         if (this.lastTimeSeen > res) {
             res = this.lastTimeSeen;
         }
@@ -50,7 +50,7 @@ public abstract class SomePreciseClock extends AbstractClock {
         }
         this.lastTimeSeen = res;
 
-        return SToken.int2base(res, timePartLen);
+        return SToken.int2base((int)res, timePartLen);
     }
 
     @Override
@@ -73,7 +73,7 @@ public abstract class SomePreciseClock extends AbstractClock {
         if (parsed.time < this.lastTimeSeen) {
             return true;
         }
-        int approxTime = this.getApproximateTime();
+        long approxTime = this.getApproximateTime();
         if (parsed.time > approxTime + 1) {
             return false; // back to the future
         }
@@ -86,7 +86,7 @@ public abstract class SomePreciseClock extends AbstractClock {
     public void adjustTime(long timeInMillis) {
         // TODO use min historical offset
         this.clockOffsetMs = timeInMillis - this.getTimeInMillis();
-        int lastTS = this.lastTimeSeen;
+        long lastTS = this.lastTimeSeen;
         this.lastTimeSeen = 0;
         this.lastSeqSeen = 0;
         this.lastIssuedTimestamp = issueTimestamp();
@@ -96,8 +96,8 @@ public abstract class SomePreciseClock extends AbstractClock {
 
     }
 
-    protected final int getApproximateTime() {
-        return (int) getTimeInMillis() / preciseInMillis;
+    protected final long getApproximateTime() {
+        return  getTimeInMillis() / preciseInMillis;
     }
 
 }

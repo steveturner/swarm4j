@@ -25,7 +25,7 @@ public abstract class AbstractClock implements Clock {
 
     VersionToken lastIssuedTimestamp;
     int lastSeqSeen;
-    int lastTimeSeen;
+    long lastTimeSeen;
 
     protected AbstractClock(String processId, int timePartLen) {
         this.id = processId;
